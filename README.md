@@ -120,32 +120,72 @@ These are the endpoints everyone depends on. Agree on these shapes early — don
 | Method | Route | Owner | Description |
 |---|---|---|---|
 | GET | `/api/health` | Noah | Health check — VM is up |
-| POST | `/api/log/quick` | Noah | Log entry immediately, no follow-up |
-| POST | `/api/log/guided/start` | Noah | Returns follow-up questions based on transcript |
-| POST | `/api/log/guided/finalize` | Noah | Submit all guided Q&A, write final entry |
-| GET | `/api/insights/{user_id}` | Noah + Clayton | AI-generated insight cards |
+| POST | `/api/log/quick` | Noah | Log entry, return extracted data + trigger async insight computation |
+| POST | `/api/log/guided/start` | Noah | Return extracted JSON state + follow-up questions (prevents re-extraction) |
+| POST | `/api/log/guided/finalize` | Noah | Incremental LLM update (not full re-extraction), write entry, trigger async insight computation |
+| GET | `/api/insights/{user_id}` | Noah | Return pre-computed insights from cache (instant, no LLM call). If < 5 entries, return "not enough data" message. |
+| GET | `/api/stats/{user_id}` | Clayton | Return raw correlation stats for charts. If < 5 entries, return "not enough data" message. |
 | GET | `/api/entries/{user_id}` | Clayton | Paginated entry history |
-| GET | `/api/stats/{user_id}` | Clayton | Raw correlation stats for charts |
 
 ---
 
 ## 📋 JSON Contract
-**Noah and Clayton must agree on this by 7pm Friday.** This is the shape of a logged entry and the stats output that feeds the LLM insight prompt.
+**Noah, Clayton, and Max must agree on this by 7pm Friday.**
+
+This is the shape of:
+1. A logged entry (what gets stored)
+2. The stats output that Clayton produces
+3. The exact field names Max's charts expect (so Clayton can map his output correctly)
 
 ### Entry (what gets stored):
-```
-user_id, raw_transcript, symptoms (array), severity (1-10),
-potential_triggers (array), mood, body_location (array),
-time_context, notes, logged_at
+```json
+{
+  "user_id": "uuid",
+  "raw_transcript": "string",
+  "symptoms": ["symptom1", "symptom2"],
+  "severity": 1-10,
+  "potential_triggers": ["caffeine", "stress"],
+  "mood": "string or null",
+  "body_location": ["head", "stomach"],
+  "time_context": "morning",
+  "notes": "string",
+  "logged_at": "timestamp"
+}
 ```
 
-### Stats output (Clayton → Noah's LLM prompt):
+### Stats output (Clayton → cached insights & charts):
+```json
+{
+  "trigger_correlations": [
+    {"symptom": "headache", "trigger": "caffeine", "score": 0.75, "sample_size": 14}
+  ],
+  "temporal_patterns": [
+    {"symptom": "fatigue", "peak_day": "Monday", "peak_time": "morning", "frequency": 8}
+  ],
+  "severity_trends": [
+    {"symptom": "headache", "trend": "worsening", "slope": 0.35, "data_points": 14}
+  ],
+  "total_entries": 42,
+  "date_range_days": 30
+}
 ```
-trigger_correlations: [ { symptom, trigger, score, sample_size } ]
-temporal_patterns:    [ { symptom, peak_day, peak_time, frequency } ]
-severity_trends:      [ { symptom, trend, slope, data_points } ]
-total_entries, date_range_days
+
+⚠️ **If total_entries < 5:** Both endpoints return a "not enough data" message instead. This prevents crashes and hallucination.
+
+### Mapped chart data (Max dictates, Clayton implements):
+**Max specifies exactly what field names his Recharts components need.**
+
+Example — if Max's severity chart expects this shape:
+```json
+[
+  {"date": "2026-02-25", "severity": 7},
+  {"date": "2026-02-26", "severity": 6}
+]
 ```
+
+Clayton modifies `severity_trends` output to match.
+
+**Lock this down at 7pm. Don't change it afterward.**
 
 ---
 
@@ -154,9 +194,9 @@ total_entries, date_range_days
 |---|---|
 | **Fri 5:00pm** | Repo cloned, Docker running, everyone SSH'd in, first `docker compose up` succeeds |
 | **Fri 6:00pm** | Each person's Phase 1 milestone done (see individual task files) |
-| **Fri 7:00pm** | ⭐ **Integration checkpoint** — Noah + Clayton finalize JSON contract |
+| **Fri 7:00pm** | ⭐ **3-way Integration checkpoint** — Noah + Clayton + Max finalize JSON contracts (extraction shape, stats shape, chart expectations) |
 | **Fri 9:00pm** | Voice → backend → DB working end to end |
-| **Fri 11:00pm** | Insights endpoint live, dashboard showing real data |
+| **Fri 11:00pm** | Insights endpoint live (cached, instant), dashboard showing real data, async insight computation working |
 | **Sat 1:00am** | Full flow works. Sleep. |
 | **Sat 8:00am** | Polish, fix bugs, run seed script for demo data |
 | **Sat 11:00am** | Code freeze. Rehearse demo. |
@@ -165,7 +205,18 @@ total_entries, date_range_days
 ---
 
 ## 🌱 Demo Data Strategy
-Real pattern detection needs weeks of data. You have hours. Clayton writes a **seed script** Friday night that populates 30 days of fake entries with obvious baked-in patterns (caffeine → headache, poor sleep → fatigue). This makes the dashboard look compelling for judges. Do not skip this.
+
+Real pattern detection needs weeks of data. You have hours.
+
+**Clayton writes a seed script Friday night that populates 30 days of fake entries with obvious baked-in patterns:**
+- Caffeine logged → headache appears within 24 hours ~75% of the time
+- Poor sleep → fatigue next morning ~80% of the time
+- Stress → stomach ache same day ~65% of the time
+- Alcohol → headache next morning ~85% of the time
+
+This makes the dashboard look compelling for judges.
+
+**Do not skip this.** Real data from today won't show patterns until tomorrow. Fake data with built-in correlations makes the insights feature look genuinely useful.
 
 ---
 

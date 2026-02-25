@@ -11,6 +11,10 @@ You own everything the user sees after they log an entry. The dashboard is where
 - [ ] Pull Eli's initial frontend scaffold once he pushes it (should be up by 5:30pm)
 - [ ] Install dependencies and confirm the app runs locally
 - [ ] Install Recharts (`npm install recharts`) — this is your charting library
+- [ ] **Open the Recharts docs and note the exact field names your charts expect**
+  - Example: LineChart expects `[{name: "Mon", uv: 4000}, ...]`
+  - BarChart expects `[{name: "trigger", value: 14}, ...]`
+  - Bookmark these signatures — you'll hand them to Clayton at the 7pm checkpoint
 - [ ] Open the Recharts docs (recharts.org) and bookmark them — you'll reference them all night
 
 ---
@@ -89,24 +93,61 @@ All charts use Recharts. Each one should have proper labels, a tooltip on hover,
 
 ---
 
-## Phase 7 — Wire Up Real API (Sat 8:00–10:00am)
+## Phase 7 — Wire Up Real API + Global Refresh (Sat 8:00–10:00am)
 Once Noah and Clayton's backend is stable, swap mock data for real API calls.
 
 - [ ] Replace mock insights with data from `GET /api/insights/{user_id}`
 - [ ] Replace mock chart data with data from `GET /api/stats/{user_id}`
 - [ ] Wire history page to `GET /api/entries/{user_id}`
 - [ ] Use the `DEMO_USER_ID` constant from `api/client.js` — don't hardcode UUIDs
+- [ ] **Subscribe to the global data refresh signal from the Log screen:**
+  ```jsx
+  import { useContext, useEffect } from 'react';
+  import { RefreshContext } from '../context/RefreshContext';
+
+  export function Dashboard() {
+    const { refreshKey } = useContext(RefreshContext);
+    const [insights, setInsights] = useState(null);
+    
+    useEffect(() => {
+      // Refetch whenever refreshKey changes (Log screen triggered a refresh)
+      fetchInsights();
+    }, [refreshKey]);
+    
+    const fetchInsights = async () => {
+      const data = await fetch(`/api/insights/${DEMO_USER_ID}`);
+      setInsights(data);
+    };
+    
+    return <div>{/* Render insights */}</div>;
+  }
+  ```
+  - Copy this pattern to both Dashboard and History pages
+  - When a new entry is logged, Eli's Log component calls `triggerRefresh()` → `refreshKey` increments → your `useEffect` fires → data refetches
+- [ ] **Handle the "not enough data" message gracefully:**
+  - If `/api/insights` returns `{category: "...", insights: []}` with a "not enough data" message in body
+  - Show it prominently instead of empty charts: _"Not enough data yet. Log more entries to see patterns."_
+  - For prediction card, if there's a `not_enough_data` message, show a placeholder instead
 - [ ] Add loading spinners while data is fetching
 - [ ] Add empty state messages ("No entries yet — go log something!")
 
 ---
 
-## Phase 8 — Polish (Sat 10:00–11:00am)
+## Phase 8 — Performance Testing + Polish (Sat 10:00–11:00am)
+- [ ] **Performance target: Dashboard should load in < 1 second**
+  - For a smooth demo experience, aiming for 1s total load time
+  - Breakdown: ~100ms network latency + 0ms LLM computation (cached) + ~50ms DB query + ~20ms JSON serialization + ~50ms React render + ~50ms browser repaint = ~270ms typical (< 500ms acceptable, < 1s target to feel snappy)
+  - If you're seeing > 1 second consistently:
+    - Check network latency to backend (should be < 100ms on LAN)
+    - Verify insights are cached in database (not being regenerated on every request) — ask Noah if `/api/insights` is hitting the cache
+    - If loading many history entries, paginate or lazy-load instead of fetching all at once
+    - Verify Recharts isn't rendering too many data points (simplify trend lines, limit history to 30 days)
 - [ ] Test on a real phone in Chrome — not just a desktop browser with narrow window
 - [ ] Pick one consistent accent color for the whole app and use it everywhere
 - [ ] Make sure all charts have axis labels and tooltips
 - [ ] Make sure the prediction card is the first thing your eye goes to on the dashboard
 - [ ] Remove any placeholder text or test labels that are still visible
+- [ ] Do a final manual test: Log an entry from Log screen → confirm it shows up in Dashboard within 2 seconds
 
 ---
 

@@ -19,13 +19,19 @@ You own the database and all the statistics. Your correlation engine is what mak
 
 Write `db/init.sql`. Docker will run this automatically on first start.
 
+⚠️ **SCHEMA IS LOCKED.** All tables must be correct before first `docker-compose up`. If bugs are found, you must manually `ALTER TABLE` or reset the DB and re-seed (risky mid-demo).
+
 - [ ] **users table** — `id` (UUID, primary key), `created_at`
 - [ ] **entries table** — `id`, `user_id` (foreign key), `raw_transcript`, `symptoms` (array), `severity` (integer 1–10), `potential_triggers` (array), `mood`, `body_location` (array), `time_context`, `notes`, `logged_at` (timestamp)
 - [ ] **correlations table** — `id`, `user_id`, `symptom`, `trigger`, `correlation_score` (float), `sample_size` (integer), `computed_at`
+- [ ] **insights_cache table** — `id`, `user_id`, `insights_json` (jsonb), `created_at` (timestamp), `entry_count_at_computation` (int)
+  - Stores pre-computed insights; Noah writes to this asynchronously
+  - Use `entry_count_at_computation` to detect stale cache (don't overwrite if new count < cached count)
 - [ ] Add indexes on `user_id` and `logged_at` on the entries table — queries will filter by these constantly
 - [ ] Add GIN indexes on the `symptoms` and `potential_triggers` array columns — needed for fast array lookups
 - [ ] Insert a hardcoded demo user with a known UUID so everyone can test without auth (`00000000-0000-0000-0000-000000000001`)
 - [ ] Share the schema with Noah by 6:30pm so he can write his models
+- [ ] **Document this schema in README.md** so the team knows about insights_cache before Noah codes
 
 ---
 
@@ -40,6 +46,19 @@ Write `db/init.sql`. Docker will run this automatically on first start.
 ## Phase 4 — Analysis Engine (Fri 7:00–11:00pm) ⭐ Your main contribution
 
 Build `backend/services/analysis.py`. This is where your math skills matter.
+
+⚠️ **All functions must handle the minimum-data edge case gracefully:**
+- If `entries < 1`: return empty dict `{}`
+- If `entries < 5`: return dict with message: `{"message": "Insufficient data", "total_entries": N}`
+- Never attempt division, never report correlations on tiny samples
+- The backend will wrap these in a circuit-breaker check before returning to the frontend
+- **Every function must validate input before processing:**
+  ```python
+  def compute_trigger_correlation(entries):
+      if not entries or len(entries) < 5:
+          return {}  # Circuit breaker
+      # ... rest of logic
+  ```
 
 **Function 1 — Trigger Correlation**
 - [ ] For each symptom in a user's history, find what triggers appeared in entries within the preceding 24 hours
@@ -87,7 +106,11 @@ Real pattern detection needs weeks of data. You need to fake it. Write `backend/
 - [ ] Vary severity (don't use the same number every time), vary timestamps, vary phrasing in the raw transcript field
 - [ ] The patterns need to be strong enough that `compute_all_stats()` actually finds them
 - [ ] Running `python seed.py` should fully populate the DB in under 10 seconds
-- [ ] Test: run seed → run `compute_all_stats()` → verify the correlations make sense intuitively
+- [ ] **Test: run seed → run `compute_all_stats()` → verify the correlations make sense intuitively**
+- [ ] **Note on timeline:** You won't see insights cached until Noah's async code runs (connects to endpoints). This is normal.
+  - Seed just populates entries
+  - When Noah's `/api/log` endpoints are called, they trigger async insight computation
+  - Dashboard will show empty insights until Noah's code runs
 
 ---
 
@@ -98,14 +121,27 @@ Real pattern detection needs weeks of data. You need to fake it. Write `backend/
 
 ---
 
-## 📋 7pm Checkpoint with Noah
+## 📋 7pm Checkpoint with Noah and Max
 
-Two things to lock in together:
+**This is a 3-way sync.** All three must be present:
 
-1. The exact JSON your extraction stores → drives your schema
-2. The exact JSON `compute_all_stats()` returns → drives Noah's insight prompt
+1. **Noah** finalizes the extraction JSON shape
+2. **Clayton** finalizes `compute_all_stats()` output shape:
+   ```json
+   {
+     "trigger_correlations": [{"symptom", "trigger", "score", "sample_size"}],
+     "temporal_patterns": [{"symptom", "peak_day", "peak_time", "frequency"}],
+     "severity_trends": [{"symptom", "trend", "slope", "data_points"}],
+     "total_entries": integer,
+     "date_range_days": integer
+   }
+   ```
+3. **Max** dictates field names his Recharts components need
+   - Clayton **maps his output to match Max's expectations exactly**
+   - Example: Max's severity chart needs `[{date: "2026-02-25", severity: 7}]`
+   - Clayton modifies output shape to match
 
-Document this agreed shape in the README before moving on.
+Document this agreed contract in the README before moving on.
 
 ---
 

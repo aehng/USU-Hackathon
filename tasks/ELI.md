@@ -25,7 +25,15 @@ The log screen is the first thing a user sees and the feature that makes this ap
 - [ ] Build the core voice recorder component — a large mic button the user taps to record
 - [ ] Wire up the Web Speech API (built into Chrome/Edge — no library needed)
 - [ ] Show a live transcript as the user speaks
-- [ ] Auto-submit the transcript when the user stops speaking
+- [ ] **Add a manual "Stop & Submit" button** — do NOT auto-submit when silence is detected
+  - Web Speech API cuts off aggressively during natural pauses (breathing, thinking)
+  - For a live demo where timing might be nervous, manual submission prevents half-finished sentences
+  - User can tap "Stop" to end recording and submit whenever they're ready
+- [ ] **Handle Web Speech API timeout:**
+  - Stops listening after ~15 seconds of silence
+  - Stops listening after ~30 seconds total (browser-dependent)
+  - Show "Still recording..." message at 25 seconds, warn "Please tap Stop to submit" at 28 seconds
+  - Never auto-submit (user always controls with Stop button)
 - [ ] Show a loading state while waiting for the backend to respond
 - [ ] Display the extracted symptom tags the backend returns (e.g. "headache · severity 7/10")
 - [ ] Test in **Chrome or Edge only** — Web Speech API does not work in Firefox
@@ -38,15 +46,51 @@ The log screen is the first thing a user sees and the feature that makes this ap
 - [ ] **Guided flow:** Record → backend returns 2-3 follow-up questions → show each one at a time → user speaks/types answer → all submitted together → logged ✓
 - [ ] Build a confirmation screen ("Logged! 🎉") showing a summary of what was captured
 - [ ] Connect to the correct backend routes depending on mode
-- [ ] Build a shared API client module that Max can import from too
+- [ ] **Build error handling:**
+  - If log endpoint fails (500 error):
+    - Show error message
+    - Offer "Try Again" button (re-submit same transcript)
+    - Offer "Type Instead" button (manual form fallback)
+  - If transcript is empty:
+    - Don't submit, show: "No speech detected. Please try again."
+- [ ] Build a shared API client module (`frontend/src/api/client.js`) that Max can import from
+  - Export both the API functions and `DEMO_USER_ID` constant
 
 > **Priority:** Nail quick log first. Guided is the polish layer.
 
 ---
 
-## Phase 4 — Integration + Navigation (Fri 10pm–Sat 1am)
+## Phase 4 — RefreshContext + Integration (Fri 10pm–Sat 1am)
+- [ ] Create a global refresh signal using React Context
+  - Create `frontend/src/context/RefreshContext.jsx`:
+  ```jsx
+  import React, { createContext, useState } from 'react';
+
+  export const RefreshContext = createContext();
+
+  export function RefreshProvider({ children }) {
+    const [refreshKey, setRefreshKey] = useState(0);
+    
+    const triggerRefresh = () => {
+      setRefreshKey(prev => prev + 1);
+    };
+    
+    return (
+      <RefreshContext.Provider value={{ refreshKey, triggerRefresh }}>
+        {children}
+      </RefreshContext.Provider>
+    );
+  }
+  ```
+  - Wrap it in `App.jsx`: `<RefreshProvider><YourApp /></RefreshProvider>`
+- [ ] After successful log call (200 OK), call `triggerRefresh()` in your log component
+  - This increments `refreshKey` which triggers Dashboard & History's `useEffect([refreshKey])` dependencies
+  - Max will subscribe to this context in Phase 7
+- [ ] **Git merge strategy:** Designate one person as "README keeper" (recommend: you!)
+  - All configuration changes, constant updates, env variable renames go through them only
+  - This prevents conflicts where Eli & Max are both updating frontend constants
+  - Add a note in README: "→ Ask Eli before changing DEMO_USER_ID or API_BASE_URL"
 - [ ] Test the full voice → backend → DB → confirmation flow end to end
-- [ ] Handle error states (backend down, speech not recognized, empty transcript)
 - [ ] Build a nav bar: Log → Dashboard → History
 - [ ] Test on a phone screen (~390px wide)
 - [ ] Merge your branch into main, trigger a VM pull
