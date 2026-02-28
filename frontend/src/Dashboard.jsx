@@ -16,6 +16,7 @@ import {
 } from "recharts";
 import InsightCard from "./components/InsightCard.jsx";
 import PredictionCard from "./components/PredictionCard.jsx";
+import { API_BASE_URL } from "./api/client.js";
 import {
   MOCK_INSIGHTS,
   MOCK_STATS,
@@ -49,7 +50,7 @@ export default function Dashboard() {
         setStats(MOCK_STATS);
       } else {
         try {
-          const base = import.meta.env.VITE_API_URL || "http://localhost:8080";
+          const base = API_BASE_URL;
           const [insightsRes, statsRes] = await Promise.all([
             fetch(`${base}/api/insights/${DEMO_USER_ID}`),
             fetch(`${base}/api/stats/${DEMO_USER_ID}`),
