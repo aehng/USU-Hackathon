@@ -58,7 +58,6 @@ class SymptomExtraction(BaseModel):
 
 LEMONADE_BASE = os.getenv("LEMONADE_BASE_URL", "http://localhost:8080/v1")
 # Use a model that exists in Lemonade. Common options:
-# - AMD-OLMo-1B-SFT-DPO-Hybrid (fast, small)
 # - Qwen3-1.7B-Hybrid (very fast, decent quality - RECOMMENDED FOR DEMOS)
 # - Qwen3-4B-Hybrid (medium speed, good quality)
 # - CodeLlama-7b-Instruct-hf-Hybrid (medium, code-focused)
@@ -167,21 +166,24 @@ async def generate(request: Request):
 
     # System prompt for symptom extraction with explicit JSON formatting
     system_prompt = (
-        "You are a medical symptom extraction assistant. Extract health information and ROOT-CAUSE triggers "
-        "from the user's description. Be conservative - only extract information explicitly stated. "
-        "For potential_triggers, prefer canonical trigger names from this list: "
-        f"{', '.join(trigger_reference)}. "
-        "If user says a synonym, map to the basic canonical term (e.g., 'stressful experience' -> 'stress', "
-        "'coffee' -> 'caffeine'). If no canonical term clearly fits, use a simple basic term. "
-        "Return ONLY valid JSON matching this exact format, with no markdown formatting: \n"
+        "You are a medical symptom extraction assistant. ALWAYS extract health information from the user's description. "
+        "IMPORTANT: You MUST identify and return at least ONE symptom if the user mentions any physical or health issue.\n\n"
+        "Rules:\n"
+        "1. ALWAYS extract mentioned symptoms (e.g., 'my head hurts' -> ['headache']\n"
+        "2. Extract severity as 1-10 integer. If mentioned, use that number. Default to 5.\n"
+        "3. For potential_triggers, use canonical names from: "
+        f"{', '.join(trigger_reference)}\n"
+        "4. If user says a synonym, map to canonical term (e.g., 'coffee' -> 'caffeine')\n"
+        "5. body_location should be specific if mentioned (e.g., ['foot', 'lower leg'])\n"
+        "6. Return ONLY valid JSON with no markdown formatting:\n"
         "{\n"
-        '  "symptoms": ["symptom1", "symptom2"],\n'
-        '  "severity": 5,\n'
+        '  "symptoms": ["symptom1"],\n'
+        '  "severity": integer,\n'
         '  "potential_triggers": ["trigger1"],\n'
-        '  "mood": "optional string or null",\n'
-        '  "body_location": ["location1", "location2"] or null,\n'
-        '  "time_context": "optional string or null",\n'
-        '  "notes": "optional string or null"\n'
+        '  "body_location": ["location"] or null,\n'
+        '  "mood": "string" or null,\n'
+        '  "time_context": "string" or null,\n'
+        '  "notes": "string" or null\n'
         "}"
     )
     

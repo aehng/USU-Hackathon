@@ -298,7 +298,7 @@ def save_entry_to_db(user_id: str, transcript: str, llm_data: dict):
                         )
                         
                         response = client.chat.completions.create(
-                            model=os.getenv("FAST_LLM_MODEL", "AMD-OLMo-1B"),
+                            model=os.getenv("FAST_LLM_MODEL", "Qwen3-1.7B-Hybrid"),
                             messages=[
                                 {"role": "system", "content": sys_prompt},
                                 {"role": "user", "content": f"Classify this trigger: {trig}"}
