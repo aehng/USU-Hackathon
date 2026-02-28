@@ -1,7 +1,7 @@
 // API client for backend communication
 // NOTE: Ask Eli before changing DEMO_USER_ID or API_BASE_URL (README keeper rule)
 
-export const API_BASE_URL = 'http://192.168.1.9:8000';
+export const API_BASE_URL = 'https://flairup.dpdns.org';
 export const DEMO_USER_ID = 'demo-user-001';
 
 // Quick log - single voice input, immediate extraction
