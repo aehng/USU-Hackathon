@@ -264,7 +264,11 @@ export default function Dashboard() {
                       border: '1px solid #e2e8f0', 
                       boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
                     }}
-                    formatter={(value) => [`${value} / 10`, "Intensity"]}
+                    formatter={(value) => {
+                      // This ensures we are showing the actual data point value
+                      const numValue = Number(value);
+                      return [`${numValue} / 10`, "Severity Level"];
+                    }}
                     labelFormatter={(label) => `Date: ${label}`}
                   />
                   
