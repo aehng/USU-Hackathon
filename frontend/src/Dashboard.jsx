@@ -6,6 +6,7 @@ import AdviceCard from "./components/AdviceCard.jsx";
 import TriggerSymptomHeatmap from "./components/TriggerSymptomHeatmap.jsx";
 import ActivitySymptomTable from "./components/ActivitySymptomTable.jsx";
 import VoiceRecorder from "./components/VoiceRecorder.jsx";
+import LogHistory from "./components/LogHistory.jsx";
 import { API_BASE_URL, DEMO_USER_ID } from "./api/client.js";
 import {
   MOCK_INSIGHTS,
@@ -19,7 +20,7 @@ export default function Dashboard() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [useMock, setUseMock] = useState(false); // Toggle to false when API is ready
-  const [activeTab, setActiveTab] = useState("main"); // 'main' | 'guided' | 'quick'
+  const [activeTab, setActiveTab] = useState("main"); // 'main' | 'guided' | 'quick' | 'history'
 
   useEffect(() => {
     async function fetchData() {
@@ -158,6 +159,15 @@ export default function Dashboard() {
               }`}
             >
               Quick log
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("history")}
+              className={`px-3 py-1.5 rounded-full transition ${
+                activeTab === "history" ? "bg-slate-900 text-white shadow-sm" : "text-slate-700"
+              }`}
+            >
+              History
             </button>
           </nav>
         </div>
@@ -332,6 +342,16 @@ export default function Dashboard() {
               Fire-and-forget: one fast voice or typed log when you&apos;re in a hurry.
             </p>
             <VoiceRecorder mode="quick" />
+          </section>
+        )}
+
+        {activeTab === "history" && (
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-md shadow-orange-50">
+            <h2 className="mb-2 text-lg font-bold text-slate-900">Your Logs</h2>
+            <p className="mb-4 text-sm text-slate-600">
+              Review and edit your previous health entries.
+            </p>
+            <LogHistory />
           </section>
         )}
 
