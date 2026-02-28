@@ -1,36 +1,35 @@
-from fastapi import FastAPI, Request, HTTPException, UploadFile, File
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.exceptions import RequestValidationError
-import uvicorn
 import os
-import requests
+import sys
 import logging
 import traceback
-from uuid import UUID
 import json
 import uuid
 from typing import Dict, List
-import sys
-import os
+from uuid import UUID
 
-# Adds the parent directory to the search path
+import uvicorn
+import requests
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
+
+# 1. Update path FIRST
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-# Now you can import as if it were in the same folder
-from validate_voicehealth_json import sanitize_voicehealth_data
-import json
-from models.models import Entry, User
+# 2. Perform local imports (Check filenames!)
+try:
+    # If the file is named 'validate_voicehealth_json.py'
+    from validate_voicehealth_json import sanitize_voicehealth_data
+except ImportError:
+    # If the file is actually named 'validate_voicehealth_json_py.py'
+    from validate_voicehealth_json_py import sanitize_voicehealth_data
 
-# database imports
-from database import SessionLocal
 from models.models import Entry, User
+from database import SessionLocal 
 
-# Configure logging to show errors
+# Configure logging
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-
-# Import Max's validator
-from validate_voicehealth_json_py import validate_voicehealth_json_py
 
 app = FastAPI(title="VoiceHealth Tracker API")
 
