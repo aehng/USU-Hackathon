@@ -7,8 +7,8 @@ SRC    = validate_voicehealth_json.c
 CJSON  = cJSON.c
 OBJ    = validate_voicehealth_json.o cJSON.o
 
-# Default: build the test executable
-all: validate_test
+# Default: build the CLI + test executable
+all: validate_cli validate_test
 
 # Static library for linking into other projects
 libvalidate.a: $(OBJ)
@@ -24,10 +24,11 @@ cJSON.o: cJSON.c cJSON.h
 validate_test: validate_voicehealth_json.o cJSON.o test_validate.c
 	$(CC) $(CFLAGS) -o $@ test_validate.c validate_voicehealth_json.o cJSON.o
 
-# Standalone validator (optional; add a main() in validate_voicehealth_json.c if needed)
-# validate: $(OBJ) ...
+# CLI wrapper for Python subprocess usage (reads JSON from stdin)
+validate_cli: validate_voicehealth_json.o cJSON.o validate_cli.c validate_voicehealth_json.h
+	$(CC) $(CFLAGS) -o $@ validate_cli.c validate_voicehealth_json.o cJSON.o
 
 clean:
-	rm -f $(OBJ) libvalidate.a validate_test
+	rm -f $(OBJ) libvalidate.a validate_test validate_cli
 
 .PHONY: all clean

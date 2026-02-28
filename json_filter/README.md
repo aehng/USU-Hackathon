@@ -24,14 +24,44 @@ Returns `1` if valid, `0` if invalid. When invalid, an optional buffer can recei
 
 2. Build:
    ```bash
-   gcc -o validate validate_voicehealth_json.c cJSON.c -I.
+   make
    ```
 
 3. Run the test program (optional):
    ```bash
-   gcc -o validate_test validate_voicehealth_json.c test_validate.c cJSON.c -I.
    ./validate_test
    ```
+
+## CLI wrapper (for Python `subprocess`)
+
+The `validate_cli` executable reads the JSON string from **stdin**.
+
+- **stdout**: `1` if valid, `0` if invalid  
+- **stderr**: specific error message when invalid  
+- **exit code**: `0` valid, `1` invalid, `2` runtime/usage error
+
+Example:
+```bash
+echo '{"symptoms":[],"severity":5,"potential_triggers":[]}' | ./validate_cli
+```
+
+Python example (note: `subprocess` is the module you want, not `os`):
+
+```python
+import subprocess
+
+json_str = '{"symptoms":["headache"],"severity":7,"potential_triggers":["caffeine"]}'
+
+proc = subprocess.run(
+    ["./validate_cli"],
+    input=json_str,
+    text=True,
+    capture_output=True,
+)
+
+is_valid = (proc.returncode == 0) and (proc.stdout.strip() == "1")
+error_message = proc.stderr.strip()
+```
 
 ## Usage
 
