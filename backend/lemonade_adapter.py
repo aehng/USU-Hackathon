@@ -26,7 +26,7 @@ class SymptomExtraction(BaseModel):
 # CONFIGURATION
 # ============================================================================
 
-LEMONADE_BASE = os.getenv("LEMONADE_BASE_URL", "http://localhost:8080")
+LEMONADE_BASE = os.getenv("LEMONADE_BASE_URL", "http://localhost:8080/v1")
 MODEL = os.getenv("LLM_MODEL", "qwen-3-hybrid")
 API_KEY = os.getenv("OPENAI_API_KEY", "not-needed-for-local")
 
