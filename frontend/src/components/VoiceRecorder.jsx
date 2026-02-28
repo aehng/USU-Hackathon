@@ -8,6 +8,7 @@ function VoiceRecorder({ mode }) {
   const [transcript, setTranscript] = useState('');
   const [manualText, setManualText] = useState('');
   const [isTypeMode, setIsTypeMode] = useState(false);
+  const [inputMethod, setInputMethod] = useState('voice'); // 'voice' or 'type'
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
@@ -310,6 +311,15 @@ function VoiceRecorder({ mode }) {
     setManualText('');
   };
 
+  const switchInputMethod = (method) => {
+    setInputMethod(method);
+    setError(null);
+    setTranscript('');
+    setManualText('');
+    setIsRecording(false);
+    setIsTypeMode(false);
+  };
+
   const handleGuidedAnswer = async (answer) => {
     const newAnswers = [...answers, answer];
     setAnswers(newAnswers);
@@ -399,15 +409,34 @@ function VoiceRecorder({ mode }) {
 
   return (
     <div className="voice-recorder">
-      {error && (
-        <div className="error-message">
-          <p>{error}</p>
-          <div className="error-actions">
-            <button onClick={handleTryAgain}>Try Again</button>
-            <button onClick={handleTypeInstead}>Type Instead</button>
-          </div>
-        </div>
-      )}
+      {/* Input Method Toggle */}
+      <div className="input-method-toggle">
+        <button 
+          className={inputMethod === 'voice' ? 'active' : ''}
+          onClick={() => switchInputMethod('voice')}
+        >
+          🎤 Voice
+        </button>
+        <button 
+          className={inputMethod === 'type' ? 'active' : ''}
+          onClick={() => switchInputMethod('type')}
+        >
+          ⌨️ Type
+        </button>
+      </div>
+
+      {/* Voice Mode */}
+      {inputMethod === 'voice' && (
+        <>
+          {error && (
+            <div className="error-message">
+              <p>{error}</p>
+              <div className="error-actions">
+                <button onClick={handleTryAgain}>Try Again</button>
+                <button onClick={() => switchInputMethod('type')}>Switch to Type</button>
+              </div>
+            </div>
+          )}
 
       {!isRecording && !isLoading && !error && (
         <div className="recorder-idle">
