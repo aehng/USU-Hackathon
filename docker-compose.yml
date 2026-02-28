@@ -3,6 +3,8 @@ services:
     build: ./backend
     ports:
       - "8080:8000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/healthtracker
     volumes:
       - ./backend:/app # This maps your VM folder to the container so code updates instantly when you save
 
