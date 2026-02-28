@@ -10,7 +10,6 @@ from uuid import UUID
 import json
 import uuid
 from typing import Dict, List
-from validate_voicehealth_json_py import sanitize_voicehealth_data
 
 # database imports
 from database import SessionLocal
@@ -198,8 +197,6 @@ async def quick_log(request: Request):
 
         llm_json = call_llm(body)
 
-
-        llm_json = sanitize_voicehealth_data(llm_json)
         llm_json_str = json.dumps(llm_json)
         is_valid, error_msg = validate_voicehealth_json_py(llm_json_str)
 
