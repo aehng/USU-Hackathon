@@ -143,8 +143,10 @@ def call_llm(payload: dict):
     llm_endpoint = f"{llm_base}/generate"
     logger.info("Calling LLM endpoint: %s", llm_endpoint)
     try:
+        # Wrap payload in "input" object as expected by LLM adapter
+        wrapped_payload = {"input": payload}
         # Timeout for smaller models (1.7B-4B are ~10-30s, 8B+ can take 30-90s)
-        resp = requests.post(llm_endpoint, json=payload, timeout=60)
+        resp = requests.post(llm_endpoint, json=wrapped_payload, timeout=60)
         resp.raise_for_status()
         return resp.json()
     except requests.RequestException as exc:
