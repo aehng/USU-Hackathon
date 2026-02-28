@@ -80,7 +80,7 @@ export async function quickLog(transcript) {
 // Guided log - start conversation with initial transcript
 export async function guidedLogStart(transcript) {
   console.log('🚀 guidedLogStart called with transcript:', transcript);
-  const url = `${API_BASE_URL}/guided-log/start`;
+  const url = `${API_BASE_URL}/api/guided-log/start`;
   console.log('🌐 Making request to:', url);
   
   const response = await fetchJson(url, {
@@ -99,7 +99,7 @@ export async function guidedLogStart(transcript) {
 // Guided log - respond to a follow-up question
 export async function guidedLogRespond(sessionId, answer) {
   console.log('🚀 guidedLogRespond called:', { sessionId, answer });
-  const url = `${API_BASE_URL}/guided-log/respond`;
+  const url = `${API_BASE_URL}/api/guided-log/respond`;
   console.log('🌐 Making request to:', url);
   
   const response = await fetchJson(url, {

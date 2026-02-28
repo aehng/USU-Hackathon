@@ -217,7 +217,7 @@ async def quick_log(request: Request):
         logger.error("Unhandled exception in quick_log: %s\n%s", exc, traceback.format_exc())
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@app.post("/guided-log/start")
+@app.post("/api/guided-log/start")
 async def guided_log_start(request: Request):
     """Start a conversational guided log session with LLM asking follow-up questions.
     
@@ -287,7 +287,7 @@ async def guided_log_start(request: Request):
         raise HTTPException(status_code=500, detail=f"Failed to start guided log: {str(exc)}")
 
 
-@app.post("/guided-log/respond")
+@app.post("/api/guided-log/respond")
 async def guided_log_respond(request: Request):
     """Submit answer to a follow-up question in the guided log conversation.
     
