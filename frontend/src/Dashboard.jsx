@@ -52,13 +52,13 @@ export default function Dashboard() {
     refreshDashboardData();
   }, [useMock]);
 
-  const notEnoughData =
-    insights?.message ||
-    stats?.message ||
-    (stats && stats.total_entries != null && stats.total_entries < 5);
   const hasInsights = insights?.insights?.length > 0;
-  const hasPrediction = insights?.prediction && !notEnoughData;
-  const hasAdvice = insights?.advice && !notEnoughData;
+  const hasPrediction =
+    !!insights?.prediction && Object.keys(insights.prediction).length > 0;
+  const hasAdvice = !!insights?.advice && Object.keys(insights.advice).length > 0;
+  const notEnoughDataMessage = insights?.message || stats?.message;
+  const notEnoughData =
+    !!notEnoughDataMessage && !hasInsights && !hasPrediction && !hasAdvice;
   const hasSeverityData = stats?.severity_trends?.length > 0;
   const hasTriggerData = stats?.trigger_correlations?.length > 0;
   const hasHeatmapData = stats?.symptom_temporal_heatmap?.length > 0;
@@ -181,7 +181,7 @@ export default function Dashboard() {
         {activeTab === "main" && notEnoughData && (
           <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-md">
             <p className="font-semibold">
-              {insights?.message || stats?.message || "Not enough data yet."}
+              {notEnoughDataMessage || "Not enough data yet."}
             </p>
             <p className="mt-1 text-sm font-medium text-amber-800">
               Log more entries to see patterns and predictions.

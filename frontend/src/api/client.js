@@ -157,7 +157,7 @@ export async function guidedLogSave(extractedData) {
 
 // Get dashboard insights
 export async function getInsights() {
-  return fetchJson(`${API_BASE_URL}/api/insights?user_id=${DEMO_USER_ID}`);
+  return fetchJson(`${API_BASE_URL}/api/insights/${DEMO_USER_ID}`);
 }
 
 // Replace the existing getHistory placeholder with this:
