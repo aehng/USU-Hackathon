@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, Float, CheckConstraint, ForeignKey, DateTime, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, Float, CheckConstraint, ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
 from sqlalchemy.sql import func
 import uuid
@@ -48,13 +48,3 @@ class InsightsCache(Base):
     insights_json = Column(JSONB)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     entry_count_at_computation = Column(Integer)
-
-class TriggerTaxonomy(Base):
-    __tablename__ = "trigger_taxonomy"
-    __table_args__ = (UniqueConstraint('user_id', 'raw_trigger', name='_user_raw_trigger_uc'),)
-
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
-    raw_trigger = Column(String(255), index=True)
-    root_cause = Column(String(255), index=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())

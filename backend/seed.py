@@ -8,12 +8,8 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-try:
-    from database import SessionLocal
-    from models.models import User, Entry, TriggerTaxonomy
-except ImportError:
-    from backend.database import SessionLocal
-    from backend.models.models import User, Entry, TriggerTaxonomy
+from backend.database import SessionLocal
+from backend.models.models import User, Entry
 
 # Constants
 DEMO_USER_ID = "00000000-0000-0000-0000-000000000001"
@@ -138,24 +134,9 @@ def seed_database():
     print("Starting database seed...")
     db = SessionLocal()
     try:
-        # Clear existing entries and taxonomy for demo user
+        # Clear existing entries for demo user to prevent duplicates if run multiple times
         db.query(Entry).filter(Entry.user_id == DEMO_USER_ID).delete()
-        db.query(TriggerTaxonomy).filter(TriggerTaxonomy.user_id == DEMO_USER_ID).delete()
         db.commit()
-        
-        # Populate Taxonomy mapping demo
-        taxonomies = [
-            TriggerTaxonomy(user_id=DEMO_USER_ID, raw_trigger="coffee", root_cause="Caffeine"),
-            TriggerTaxonomy(user_id=DEMO_USER_ID, raw_trigger="monster energy", root_cause="Caffeine"),
-            TriggerTaxonomy(user_id=DEMO_USER_ID, raw_trigger="red bull", root_cause="Caffeine"),
-            TriggerTaxonomy(user_id=DEMO_USER_ID, raw_trigger="latte", root_cause="Caffeine"),
-            TriggerTaxonomy(user_id=DEMO_USER_ID, raw_trigger="beer", root_cause="Alcohol"),
-            TriggerTaxonomy(user_id=DEMO_USER_ID, raw_trigger="wine", root_cause="Alcohol"),
-            TriggerTaxonomy(user_id=DEMO_USER_ID, raw_trigger="traffic", root_cause="Stress"),
-            TriggerTaxonomy(user_id=DEMO_USER_ID, raw_trigger="work", root_cause="Stress"),
-            TriggerTaxonomy(user_id=DEMO_USER_ID, raw_trigger="late night", root_cause="Lack Of Sleep")
-        ]
-        db.add_all(taxonomies)
         
         # Generate and insert new entries
         entries = generate_entries()

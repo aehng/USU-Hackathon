@@ -43,18 +43,5 @@ CREATE INDEX idx_entries_logged_at ON entries(logged_at);
 CREATE INDEX idx_entries_symptoms ON entries USING GIN (symptoms);
 CREATE INDEX idx_entries_potential_triggers ON entries USING GIN (potential_triggers);
 
-CREATE TABLE trigger_taxonomy (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-    raw_trigger VARCHAR(255),
-    root_cause VARCHAR(255),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT _user_raw_trigger_uc UNIQUE (user_id, raw_trigger)
-);
-
-CREATE INDEX idx_trigger_taxonomy_user_id ON trigger_taxonomy(user_id);
-CREATE INDEX idx_trigger_taxonomy_raw_trigger ON trigger_taxonomy(raw_trigger);
-CREATE INDEX idx_trigger_taxonomy_root_cause ON trigger_taxonomy(root_cause);
-
 -- Insert demo user
 INSERT INTO users (id) VALUES ('00000000-0000-0000-0000-000000000001');
