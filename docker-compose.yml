@@ -2,7 +2,7 @@ services:
   backend:
     build: ./backend
     ports:
-      - "8002:8000"
+      - "8001:8000"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/healthtracker
     volumes:
@@ -11,7 +11,7 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "3000:3000"
+      - "5173:5173"
     volumes:
       - ./frontend:/app # Same instant-update magic for the frontend
 
@@ -23,6 +23,6 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: healthtracker
     ports:
-      - "5433:5432"
+      - "5432:5432"
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
