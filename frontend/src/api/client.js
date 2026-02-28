@@ -160,9 +160,25 @@ export async function getInsights() {
   return fetchJson(`${API_BASE_URL}/api/insights?user_id=${DEMO_USER_ID}`);
 }
 
-// Get history
+// Replace the existing getHistory placeholder with this:
 export async function getHistory() {
-  return fetchJson(`${API_BASE_URL}/api/history?user_id=${DEMO_USER_ID}`);
+  console.log('🚀 getHistory called');
+  return fetchJson(`${API_BASE_URL}/api/history/${DEMO_USER_ID}`);
+}
+
+// Add this new function to handle edits
+export async function updateEntry(entryId, updateData) {
+  console.log('🚀 updateEntry called for:', entryId);
+  const url = `${API_BASE_URL}/api/entries/${entryId}`;
+  
+  const response = await fetchJson(url, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updateData)
+  });
+  
+  console.log('✅ updateEntry response:', response);
+  return response;
 }
 
 // Transcribe audio using Faster-Whisper

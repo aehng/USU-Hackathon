@@ -952,13 +952,70 @@ def get_stats(user_id: str):
 
 @app.get("/api/history/{user_id}")
 def get_history(user_id: str):
-    """Placeholder for history endpoint"""
-    return {
-        "status": "success",
-        "message": "History placeholder - Clayton & Noah will implement",
-        "user_id": user_id,
-        "entries": []
-    }
+    """Fetch all history entries for a user."""
+    db = SessionLocal()
+    try:
+        entries = db.query(Entry).filter(Entry.user_id == user_id).order_by(Entry.logged_at.desc()).all()
+        
+        # Serialize the SQLAlchemy objects into dictionaries
+        entry_list = []
+        for e in entries:
+            entry_list.append({
+                "id": str(e.id),
+                "raw_transcript": e.raw_transcript,
+                "symptoms": e.symptoms if e.symptoms else [],
+                "severity": e.severity,
+                "potential_triggers": e.potential_triggers if e.potential_triggers else [],
+                "notes": e.notes,
+                "logged_at": e.logged_at.isoformat() if e.logged_at else None
+            })
+
+        return {
+            "status": "success",
+            "user_id": user_id,
+            "entries": entry_list
+        }
+    except Exception as e:
+        logger.error(f"Error getting history: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+
+@app.put("/api/entries/{entry_id}")
+async def update_entry(entry_id: str, request: Request):
+    """Update an existing log entry."""
+    db = SessionLocal()
+    try:
+        update_data = await request.json()
+        entry = db.query(Entry).filter(Entry.id == entry_id).first()
+        
+        if not entry:
+            raise HTTPException(status_code=404, detail="Entry not found")
+
+        # Update allowed fields
+        if "symptoms" in update_data:
+            entry.symptoms = update_data["symptoms"]
+        if "potential_triggers" in update_data:
+            entry.potential_triggers = update_data["potential_triggers"]
+        if "notes" in update_data:
+            entry.notes = update_data["notes"]
+        if "severity" in update_data:
+            sev = update_data["severity"]
+            # Enforce constraints
+            if sev is None or (isinstance(sev, int) and 1 <= sev <= 10):
+                entry.severity = sev
+
+        db.commit()
+        return {"status": "success", "message": "Entry updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating entry {entry_id}: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
 
 if __name__ == "__main__":
     # ⚠️ DO NOT CHANGE PORT 8000 UNDER ANY CIRCUMSTANCE - Container internal port
