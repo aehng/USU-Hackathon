@@ -264,10 +264,11 @@ export default function Dashboard() {
                       border: '1px solid #e2e8f0', 
                       boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
                     }}
-                    formatter={(value) => {
-                      // This ensures we are showing the actual data point value
-                      const numValue = Number(value);
-                      return [`${numValue} / 10`, "Severity Level"];
+                    // Use 'payload' to ensure we are grabbing the raw data from the API
+                    formatter={(value, name, props) => {
+                      // We grab the value directly from the data point's payload
+                      const actualValue = props.payload.severity; 
+                      return [`${actualValue} / 10`, "Intensity"];
                     }}
                     labelFormatter={(label) => `Date: ${label}`}
                   />
