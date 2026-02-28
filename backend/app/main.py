@@ -10,6 +10,16 @@ from uuid import UUID
 import json
 import uuid
 from typing import Dict, List
+import sys
+import os
+
+# Adds the parent directory to the search path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+
+# Now you can import as if it were in the same folder
+from validate_voicehealth_json import sanitize_voicehealth_data
+import json
+from models.models import Entry, User
 
 # database imports
 from database import SessionLocal
