@@ -1,10 +1,13 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File
 import uvicorn
 import os
 import json
+import tempfile
+import shutil
 from openai import OpenAI
 from pydantic import BaseModel
 from typing import List, Optional
+from faster_whisper import WhisperModel
 
 app = FastAPI(title="Lemonade Symptom Extraction Adapter")
 
@@ -48,6 +51,65 @@ print(f"   Lemonade URL: {LEMONADE_BASE}")
 print(f"   Model: {MODEL}")
 print(f"   Attempting to connect to Lemonade...")
 
+# Initialize Whisper model for audio transcription
+print(f"🎤 Loading Faster-Whisper model...")
+# Use "base" for speed, "small" for better quality, "medium" for even better (but slower)
+WHISPER_MODEL_SIZE = os.getenv("WHISPER_MODEL_SIZE", "base")
+whisper_model = WhisperModel(WHISPER_MODEL_SIZE, device="cpu", compute_type="int8")
+print(f"✅ Whisper model loaded ({WHISPER_MODEL_SIZE})")
+
+
+@app.post("/transcribe")
+async def transcribe_audio(audio: UploadFile = File(...)):
+    """Transcribe audio file to text using Faster-Whisper.
+    
+    Accepts: audio file (webm, ogg, mp3, wav, etc.)
+    Returns: { "text": "transcribed text here" }
+    """
+    print(f"🎤 Received audio file: {audio.filename}, content_type: {audio.content_type}")
+    
+    # Create temporary file to save uploaded audio
+    temp_audio = None
+    try:
+        # Save uploaded file to temporary location
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_file:
+            temp_audio = temp_file.name
+            shutil.copyfileobj(audio.file, temp_file)
+        
+        print(f"📁 Saved audio to: {temp_audio}")
+        print(f"🔄 Transcribing with Whisper...")
+        
+        # Transcribe using Faster-Whisper
+        segments, info = whisper_model.transcribe(
+            temp_audio,
+            language="en",  # Force English for faster processing
+            beam_size=1,    # Faster, slightly less accurate
+            vad_filter=True  # Filter out silence/noise
+        )
+        
+        # Collect all segments into a single transcript
+        transcript = " ".join([segment.text.strip() for segment in segments])
+        
+        print(f"✅ Transcription complete: {transcript[:100]}...")
+        
+        return {"text": transcript}
+        
+    except Exception as e:
+        print(f"❌ Transcription error: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Transcription failed: {str(e)}"
+        )
+    finally:
+        # Clean up temporary file
+        if temp_audio and os.path.exists(temp_audio):
+            try:
+                os.unlink(temp_audio)
+            except Exception:
+                pass
+
 
 @app.post("/generate")
 async def generate(request: Request):
@@ -78,8 +140,8 @@ async def generate(request: Request):
     # System prompt for symptom extraction with explicit JSON formatting
     system_prompt = (
         "You are a medical symptom extraction assistant. Extract health information "
-        "from the user's description. Focus on triggers as they are very important. "
-        "Be conservative - only extract information explicitly stated. "
+        "from the user's description. Focus especially on finding potential triggers, as they are "
+        "crucial for predictions. Be conservative - only extract information explicitly stated. "
         "Return ONLY valid JSON matching this exact format, with no markdown formatting:\n"
         "{\n"
         '  "symptoms": ["symptom1", "symptom2"],\n'

@@ -1,14 +1,11 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import { RefreshContext } from '../context/RefreshContext';
-import { quickLog, guidedLogStart, guidedLogFinalize } from '../api/client';
+import { quickLog, guidedLogStart, guidedLogRespond, guidedLogSave } from '../api/client';
 import './VoiceRecorder.css';
 
 function VoiceRecorder({ mode }) {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const [manualText, setManualText] = useState('');
-  const [isTypeMode, setIsTypeMode] = useState(false);
-  const [inputMethod, setInputMethod] = useState('voice'); // 'voice' or 'type'
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
@@ -17,7 +14,6 @@ function VoiceRecorder({ mode }) {
   
   // Guided mode state
   const [guidedState, setGuidedState] = useState(null);
-  const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState([]);
   
   const recognitionRef = useRef(null);
@@ -28,11 +24,6 @@ function VoiceRecorder({ mode }) {
 
   // Initialize Web Speech API
   useEffect(() => {
-    console.log('🎤 Initializing Web Speech API');
-    console.log('Browser:', navigator.userAgent);
-    console.log('Has SpeechRecognition:', 'SpeechRecognition' in window);
-    console.log('Has webkitSpeechRecognition:', 'webkitSpeechRecognition' in window);
-
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       setError('Web Speech API is not supported in this browser. Please use Chrome or Edge.');
       return;
@@ -44,14 +35,8 @@ function VoiceRecorder({ mode }) {
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
-    console.log('✓ Web Speech API initialized');
-
-    recognition.onstart = () => {
-      console.log('🔴 Recording started - listening for audio');
-    };
 
     recognition.onresult = (event) => {
-      console.log('📝 Got result event:', event.results.length, 'results');
       let interimTranscript = '';
       let finalTranscript = '';
 
@@ -71,7 +56,7 @@ function VoiceRecorder({ mode }) {
     };
 
     recognition.onerror = (event) => {
-      console.error('❌ Speech recognition error:', event.error);
+      console.error('Speech recognition error:', event.error);
       
       // Retry on network errors up to 3 times
       if (event.error === 'network' && retryCountRef.current < 3) {
@@ -90,8 +75,7 @@ function VoiceRecorder({ mode }) {
       }
       
       if (event.error === 'no-speech') {
-        console.warn('⚠️ No speech detected - microphone may not be working or browser may not support it well');
-        setError('No speech detected. Please try again. (Check mic permissions & browser support)');
+        setError('No speech detected. Please try again.');
       } else if (event.error === 'not-allowed') {
         setError('Microphone access denied. Please allow microphone access.');
       } else if (event.error === 'network') {
@@ -202,7 +186,6 @@ function VoiceRecorder({ mode }) {
   };
 
   const startRecording = async () => {
-    console.log('📢 startRecording called');
     setError(null);
     setResult(null);
     setTranscript('');
@@ -210,18 +193,8 @@ function VoiceRecorder({ mode }) {
     setShowWarning(false);
     retryCountRef.current = 0; // Reset retry counter
 
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const shouldSkipMicPreflight = !window.isSecureContext && !isLocalhost;
-    console.log('isLocalhost:', isLocalhost, 'shouldSkipMicPreflight:', shouldSkipMicPreflight);
-
     try {
-      if (!shouldSkipMicPreflight) {
-        console.log('🔐 Requesting microphone permission...');
-        await ensureMicrophonePermission();
-      } else {
-        console.warn('Skipping getUserMedia preflight on non-secure origin; attempting SpeechRecognition directly.');
-      }
-      console.log('✓ Permissions OK, starting speech recognition');
+      await ensureMicrophonePermission();
       setIsRecording(true);
       recognitionRef.current?.start();
     } catch (e) {
@@ -251,11 +224,10 @@ function VoiceRecorder({ mode }) {
     }
   };
 
-  const submitLog = async (inputText) => {
-    console.log('📝 submitLog called with text:', inputText);
-    console.log('📋 Current mode:', mode);
-    
-    if (!inputText.trim()) {
+  const handleStopAndSubmit = async () => {
+    stopRecording();
+
+    if (!transcript.trim()) {
       setError('No speech detected. Please try again.');
       return;
     }
@@ -263,17 +235,17 @@ function VoiceRecorder({ mode }) {
     setIsLoading(true);
     setError(null);
 
-    try {
+    try:
       if (mode === 'quick') {
-        console.log('⚡ Calling quickLog...');
-        const response = await quickLog(inputText);
-        console.log('✨ Got response:', response);
+        const response = await quickLog(transcript);
         setResult(response);
-        triggerRefresh();
+        triggerRefresh(); // Trigger refresh for dashboard/history
       } else {
-        const response = await guidedLogStart(inputText);
+        // Guided mode
+        console.log('🎯 Starting guided log...');
+        const response = await guidedLogStart(transcript);
+        console.log('✨ Got guided response:', response);
         setGuidedState(response);
-        setCurrentQuestion(0);
         setAnswers([]);
       }
     } catch (err) {
@@ -282,11 +254,6 @@ function VoiceRecorder({ mode }) {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleStopAndSubmit = async () => {
-    stopRecording();
-    await submitLog(transcript);
   };
 
   const handleTryAgain = () => {
@@ -303,59 +270,51 @@ function VoiceRecorder({ mode }) {
   const handleTypeInstead = () => {
     setError(null);
     setResult(null);
-    setIsTypeMode(true);
-    setManualText(transcript);
-  };
-
-  const handleSubmitTyped = async () => {
-    await submitLog(manualText);
-  };
-
-  const handleCancelTyped = () => {
-    setIsTypeMode(false);
-    setManualText('');
-  };
-
-  const switchInputMethod = (method) => {
-    setInputMethod(method);
-    setError(null);
-    setTranscript('');
-    setManualText('');
-    setIsRecording(false);
-    setIsTypeMode(false);
+    // TODO: Show manual form
+    alert('Manual form not implemented yet');
   };
 
   const handleGuidedAnswer = async (answer) => {
-    const newAnswers = [...answers, answer];
-    setAnswers(newAnswers);
+    if (!answer.trim()) {
+      setError('Please provide an answer');
+      return;
+    }
 
-    if (currentQuestion < guidedState.questions.length - 1) {
-      setCurrentQuestion(prev => prev + 1);
-    } else {
-      // All questions answered, finalize
-      setIsLoading(true);
-      try {
-        const response = await guidedLogFinalize(guidedState.extracted_state, newAnswers);
-        setResult(response);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Send answer to backend and get next state
+      const response = await guidedLogRespond(guidedState.session_id, answer);
+      
+      console.log('📝 Guided response:', response);
+      
+      // Check if conversation is complete
+      if (response.is_complete) {
+        // Save the extracted data to database
+        const saveResponse = await guidedLogSave(response.extracted_data);
+        setResult(saveResponse);
         setGuidedState(null);
-        triggerRefresh(); // Trigger refresh for dashboard/history
-      } catch (err) {
-        console.error('Guided finalize failed:', err);
-        setError(err.message || 'Failed to finalize log. Please try again.');
-      } finally {
-        setIsLoading(false);
+        setAnswers([]);
+        triggerRefresh(); // Refresh dashboard
+      } else {
+        // More questions to answer - update state
+        setGuidedState(response);
+        setAnswers([...answers, { question: guidedState.question, answer }]);
       }
+    } catch (err) {
+      console.error('Guided answer failed:', err);
+      setError(err.message || 'Failed to process your answer. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleReset = () => {
     setTranscript('');
-    setManualText('');
-    setIsTypeMode(false);
     setResult(null);
     setError(null);
     setGuidedState(null);
-    setCurrentQuestion(0);
     setAnswers([]);
   };
 
@@ -392,56 +351,72 @@ function VoiceRecorder({ mode }) {
 
   // Guided mode - showing questions
   if (guidedState && !result) {
-    const question = guidedState.questions[currentQuestion];
     return (
       <div className="voice-recorder guided">
-        <h3>Follow-up Question {currentQuestion + 1}/{guidedState.questions.length}</h3>
-        <p className="question">{question}</p>
-        <input
-          type="text"
-          placeholder="Type your answer..."
-          onKeyPress={(e) => {
-            if (e.key === 'Enter' && e.target.value.trim()) {
-              handleGuidedAnswer(e.target.value.trim());
-              e.target.value = '';
-            }
-          }}
-        />
-        <p className="hint">Press Enter to submit</p>
+        {isLoading ? (
+          <div className="loading">
+            <div className="spinner"></div>
+            <p>Processing your answer...</p>
+          </div>
+        ) : (
+          <>
+            {/* Show conversation history */}
+            {answers.length > 0 && (
+              <div className="conversation-history">
+                {answers.map((qa, idx) => (
+                  <div key={idx} className="conversation-item">
+                    <div className="assistant-message">
+                      <strong>Assistant:</strong> {qa.question}
+                    </div>
+                    <div className="user-message">
+                      <strong>You:</strong> {qa.answer}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Current question */}
+            <div className="current-question">
+              <h3>{answers.length === 0 ? 'Follow-up' : `Question ${answers.length + 1}`}</h3>
+              <p className="question">{guidedState.question}</p>
+              
+              {error && (
+                <div className="error-message">
+                  <p>{error}</p>
+                </div>
+              )}
+              
+              <input
+                type="text"
+                placeholder="Type your answer..."
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && e.target.value.trim()) {
+                    handleGuidedAnswer(e.target.value.trim());
+                    e.target.value = '';
+                  }
+                }}
+                autoFocus
+              />
+              <p className="hint">Press Enter to submit</p>
+            </div>
+          </>
+        )}
       </div>
     );
   }
 
   return (
     <div className="voice-recorder">
-      {/* Input Method Toggle */}
-      <div className="input-method-toggle">
-        <button 
-          className={inputMethod === 'voice' ? 'active' : ''}
-          onClick={() => switchInputMethod('voice')}
-        >
-          🎤 Voice
-        </button>
-        <button 
-          className={inputMethod === 'type' ? 'active' : ''}
-          onClick={() => switchInputMethod('type')}
-        >
-          ⌨️ Type
-        </button>
-      </div>
-
-      {/* Voice Mode */}
-      {inputMethod === 'voice' && (
-        <>
-          {error && (
-            <div className="error-message">
-              <p>{error}</p>
-              <div className="error-actions">
-                <button onClick={handleTryAgain}>Try Again</button>
-                <button onClick={() => switchInputMethod('type')}>Switch to Type</button>
-              </div>
-            </div>
-          )}
+      {error && (
+        <div className="error-message">
+          <p>{error}</p>
+          <div className="error-actions">
+            <button onClick={handleTryAgain}>Try Again</button>
+            <button onClick={handleTypeInstead}>Type Instead</button>
+          </div>
+        </div>
+      )}
 
       {!isRecording && !isLoading && !error && (
         <div className="recorder-idle">
@@ -471,32 +446,12 @@ function VoiceRecorder({ mode }) {
       {isLoading && (
         <div className="loading">
           <div className="spinner"></div>
-          <p>Analyzing with AI... (this may take 30-60 seconds)</p>
-        </div>
-      )}
-
-      {isTypeMode && !isLoading && (
-        <div className="typed-input">
-          <strong>Type your symptoms</strong>
-          <textarea
-            value={manualText}
-            onChange={(e) => setManualText(e.target.value)}
-            placeholder="Example: I’ve had a headache since lunch, severity 7 out of 10, maybe from too much coffee"
-            rows={5}
-          />
-          <div className="typed-actions">
-            <button className="submit-button" onClick={handleSubmitTyped}>
-              Submit Typed Log
-            </button>
-            <button className="cancel-button" onClick={handleCancelTyped}>
-              Cancel
-            </button>
-          </div>
+          <p>Processing your log...</p>
         </div>
       )}
 
       <div className="controls">
-        {!isRecording && !isLoading && !isTypeMode && (
+        {!isRecording && !isLoading && (
           <button 
             className="mic-button" 
             onClick={startRecording}
@@ -515,66 +470,13 @@ function VoiceRecorder({ mode }) {
         )}
       </div>
 
-      {transcript && !isRecording && !isLoading && !error && !isTypeMode && (
+      {transcript && !isRecording && !isLoading && !error && (
         <div className="transcript-preview">
           <strong>Your recording:</strong>
           <p>{transcript}</p>
           <button className="submit-button" onClick={handleStopAndSubmit}>
             Submit
           </button>
-        </div>
-      )}
-        </>
-      )}
-
-      {/* Type Mode */}
-      {inputMethod === 'type' && (
-        <div className="type-mode-container">
-          {error && (
-            <div className="error-message">
-              <p>{error}</p>
-              <div className="error-actions">
-                <button onClick={() => setError(null)}>Dismiss</button>
-              </div>
-            </div>
-          )}
-
-          {!isLoading && !error && (
-            <div className="type-instructions">
-              <p>
-                {mode === 'quick' 
-                  ? 'Type your symptoms. Be as detailed as you\'d like.'
-                  : 'Type your symptoms. We\'ll ask follow-up questions after.'}
-              </p>
-            </div>
-          )}
-
-          {isLoading && (
-            <div className="loading">
-              <div className="spinner"></div>
-              <p>Processing your log...</p>
-            </div>
-          )}
-
-          {!isLoading && (
-            <textarea
-              className="text-input-area"
-              value={manualText}
-              onChange={(e) => setManualText(e.target.value)}
-              placeholder="Example: I've had a headache since lunch, severity 7 out of 10, maybe from too much coffee"
-              rows={6}
-            />
-          )}
-
-          <div className="type-actions">
-            <button 
-              className="submit-button" 
-              onClick={handleSubmitTyped}
-              disabled={!manualText.trim() || isLoading}
-            >
-              Submit
-            </button>
-          </div>
         </div>
       )}
     </div>

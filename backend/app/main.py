@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError
 import uvicorn
@@ -8,6 +8,8 @@ import logging
 import traceback
 from uuid import UUID
 import json
+import uuid
+from typing import Dict, List
 
 # database imports
 from database import SessionLocal
@@ -34,6 +36,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# In-memory conversation storage for guided log sessions
+guided_sessions: Dict[str, List[Dict]] = {}
 
 # --- HELPER FUNCTIONS ---
 
@@ -66,6 +71,30 @@ def normalize_user_id(user_id: str | None) -> str:
     except ValueError:
         logger.warning("Invalid user_id received (%s); falling back to demo UUID", user_id)
         return "00000000-0000-0000-0000-000000000001"
+
+
+def call_llm_chat(messages: List[Dict], temperature: float = 0.7):
+    """Call LLM with chat messages for conversational guided log."""
+    from openai import OpenAI
+    
+    lemonade_base = os.getenv("LEMONADE_BASE_URL", "http://localhost:8080/v1")
+    model = os.getenv("LLM_MODEL", "Qwen3-1.7B-Hybrid")
+    
+    client = OpenAI(
+        api_key="not-needed",
+        base_url=lemonade_base.rstrip("/")
+    )
+    
+    try:
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=temperature
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        logger.error(f"LLM chat error: {e}")
+        raise HTTPException(status_code=502, detail=f"LLM chat failed: {str(e)}")
 
 
 def save_entry_to_db(user_id: str, transcript: str, llm_data: dict):
@@ -112,6 +141,28 @@ def health_check():
     return {"status": "healthy"}
 
 
+@app.post("/api/transcribe")
+async def transcribe_audio(audio: UploadFile = File(...)):
+    """Forward audio file to LLM adapter for transcription using Faster-Whisper.
+    
+    Accepts: audio file (webm, ogg, mp3, wav, etc.)
+    Returns: { "text": "transcribed text here" }
+    """
+    llm_base = os.getenv("LLM_SERVER_URL", "https://llm.flairup.dpdns.org")
+    llm_endpoint = f"{llm_base.rstrip('/')}/transcribe"
+    
+    try:
+        # Forward the audio file to the LLM adapter
+        files = {"audio": (audio.filename, audio.file, audio.content_type)}
+        resp = requests.post(llm_endpoint, files=files, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException as exc:
+        raise HTTPException(status_code=502, detail=f"Transcription request failed: {exc}")
+    except ValueError:
+        raise HTTPException(status_code=502, detail="Transcription service returned non-JSON response")
+
+
 @app.post("/api/log/quick")
 async def quick_log(request: Request):
     """
@@ -147,9 +198,154 @@ async def quick_log(request: Request):
         logger.error("Unhandled exception in quick_log: %s\n%s", exc, traceback.format_exc())
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@app.post("/api/log/guided/start")
+@app.post("/guided-log/start")
 async def guided_log_start(request: Request):
-    """Starts a guided logging session by asking the LLM for follow-up questions."""
+    """Start a conversational guided log session with LLM asking follow-up questions.
+    
+    Returns the first follow-up question to gather more complete symptom information.
+    """
+    try:
+        body = await request.json()
+        user_id = normalize_user_id(body.get("user_id"))
+        transcript = body.get("transcript")
+
+        if not transcript:
+            raise HTTPException(status_code=400, detail="Missing transcript")
+
+        # Create new session
+        session_id = str(uuid.uuid4())
+        
+        # System prompt for guided conversation
+        system_prompt = (
+            "You are a compassionate health assistant helping someone log their symptoms. "
+            "Your goal is to gather complete information through natural conversation. "
+            "Based on what the user tells you, ask ONE specific follow-up question to:\n"
+            "1. Clarify symptom severity (1-10 scale if not mentioned)\n"
+            "2. Identify potential triggers (food, stress, activities, environment) - THIS IS MOST IMPORTANT\n"
+            "3. Understand timing and duration\n"
+            "4. Learn about body location and type of discomfort\n"
+            "5. Understand mood and emotional state\n\n"
+            "Keep questions short, empathetic, and conversational. "
+            "Ask about the MOST important missing information first. "
+            "After 2-4 questions, when you have enough information, respond with "
+            "EXACTLY this format (including the word COMPLETE): 'COMPLETE:{json_object}' where json_object contains:\n"
+            '{"symptoms": ["list"], "severity": 5, "potential_triggers": ["list"], '
+            '"mood": "string", "body_location": "string", "time_context": "string", "notes": "string"}'
+        )
+        
+        # Initialize conversation
+        guided_sessions[session_id] = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": f"Initial log: {transcript}"}
+        ]
+        
+        # Get first question from LLM
+        assistant_message = call_llm_chat(guided_sessions[session_id])
+        guided_sessions[session_id].append({"role": "assistant", "content": assistant_message})
+        
+        # Check if already complete (enough info in initial transcript)
+        if assistant_message.startswith("COMPLETE:"):
+            extracted_data = _extract_completion_data(assistant_message)
+            del guided_sessions[session_id]  # Clean up
+            return {
+                "session_id": session_id,
+                "question": None,
+                "is_complete": True,
+                "extracted_data": extracted_data
+            }
+        
+        return {
+            "session_id": session_id,
+            "question": assistant_message,
+            "is_complete": False,
+            "extracted_data": None
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Guided log start failed: %s\n%s", exc, traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Failed to start guided log: {str(exc)}")
+
+
+@app.post("/guided-log/respond")
+async def guided_log_respond(request: Request):
+    """Submit answer to a follow-up question in the guided log conversation.
+    
+    Returns the next question or completion with extracted data.
+    """
+    try:
+        body = await request.json()
+        session_id = body.get("session_id")
+        answer = body.get("answer")
+        
+        if not session_id:
+            raise HTTPException(status_code=400, detail="Missing session_id")
+        if not answer:
+            raise HTTPException(status_code=400, detail="Missing answer")
+            
+        if session_id not in guided_sessions:
+            raise HTTPException(status_code=404, detail="Session not found or expired")
+        
+        # Add user's answer to conversation
+        guided_sessions[session_id].append({"role": "user", "content": answer})
+        
+        # Get next question or completion from LLM
+        assistant_message = call_llm_chat(guided_sessions[session_id])
+        guided_sessions[session_id].append({"role": "assistant", "content": assistant_message})
+        
+        # Check if complete
+        if assistant_message.startswith("COMPLETE:"):
+            extracted_data = _extract_completion_data(assistant_message)
+            del guided_sessions[session_id]  # Clean up session
+            return {
+                "session_id": session_id,
+                "question": None,
+                "is_complete": True,
+                "extracted_data": extracted_data
+            }
+        
+        return {
+            "session_id": session_id,
+            "question": assistant_message,
+            "is_complete": False,
+            "extracted_data": None
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Guided log respond failed: %s\n%s", exc, traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Failed to process response: {str(exc)}")
+
+
+def _extract_completion_data(completion_message: str) -> dict:
+    """Extract JSON data from COMPLETE:{ } message."""
+    try:
+        json_str = completion_message.replace("COMPLETE:", "").strip()
+        
+        # Remove markdown code blocks if present
+        if json_str.startswith("```"):
+            lines = json_str.split("\n")
+            json_lines = []
+            in_code_block = False
+            for line in lines:
+                if line.startswith("```"):
+                    in_code_block = not in_code_block
+                elif in_code_block:
+                    json_lines.append(line)
+            json_str = "\n".join(json_lines).strip()
+        
+        return json.loads(json_str)
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse completion JSON: {completion_message}")
+        raise HTTPException(status_code=500, detail="Failed to parse completion data")
+
+
+# Legacy guided log endpoints (deprecated - use /guided-log/* instead)
+@app.post("/api/log/guided/start")
+async def guided_log_start_legacy(request: Request):
+    """DEPRECATED: Use /guided-log/start instead. Basic stub for compatibility."""
     body = await request.json()
     user_id = normalize_user_id(body.get("user_id"))
     transcript = body.get("transcript")
@@ -167,15 +363,15 @@ async def guided_log_start(request: Request):
 
     return {
         "status": "success",
-        "message": "Guided log started",
+        "message": "Guided log started (legacy endpoint - use /guided-log/start)",
         "extracted_state": llm_json.get("extracted_state", {}),
         "questions": llm_json.get("questions", ["Can you elaborate on your symptoms?"]),
         "data_received": body
     }
 
 @app.post("/api/log/guided/finalize")
-async def guided_log_finalize(request: Request):
-    """Finalizes a guided session, extracts data, validates it, and saves it."""
+async def guided_log_finalize_legacy(request: Request):
+    """DEPRECATED: Use conversational /guided-log/* endpoints instead. Finalizes a guided session."""
     body = await request.json()
     user_id = normalize_user_id(body.get("user_id"))
     full_conversation = body.get("full_conversation") # e.g., "User: I hurt. Bot: Where? User: My head."
@@ -205,7 +401,7 @@ async def guided_log_finalize(request: Request):
 
     return {
         "status": "success",
-        "message": "Guided log finalized",
+        "message": "Guided log finalized (legacy endpoint)",
         "entry_id": str(entry_id),
         "symptoms": llm_json.get("symptoms", []),
         "severity": llm_json.get("severity", 0),
