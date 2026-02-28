@@ -7,6 +7,7 @@ import requests
 import logging
 import traceback
 from uuid import UUID
+import json
 
 # database imports
 from database import SessionLocal
@@ -15,6 +16,9 @@ from models.models import Entry, User
 # Configure logging to show errors
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
+
+# Import Max's validator
+from validate_voicehealth_json_py import validate_voicehealth_json_py
 
 app = FastAPI(title="VoiceHealth Tracker API")
 
@@ -31,6 +35,74 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- HELPER FUNCTIONS ---
+
+def call_llm(payload: dict):
+    """Handles communicating with the LLM via the Cloudflare tunnel."""
+    llm_base = os.getenv("LLM_SERVER_URL", "https://llm.flairup.dpdns.org").rstrip('/')
+    llm_endpoint = f"{llm_base}/generate"
+    logger.info("Calling LLM endpoint: %s", llm_endpoint)
+    try:
+        # Timeout for smaller models (1.7B-4B are ~10-30s, 8B+ can take 30-90s)
+        resp = requests.post(llm_endpoint, json={"input": payload}, timeout=60)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException as exc:
+        logger.error("LLM request failed: %s", exc)
+        if 'resp' in locals():
+            logger.error("LLM response: %s - %s", resp.status_code, resp.text)
+        raise HTTPException(status_code=502, detail="LLM service unavailable or failed.")
+    except ValueError:
+        logger.error("LLM returned non-JSON")
+        raise HTTPException(status_code=502, detail="LLM returned invalid format.")
+
+
+def normalize_user_id(user_id: str | None) -> str:
+    if not user_id:
+        raise HTTPException(status_code=400, detail="Missing user_id")
+    try:
+        UUID(str(user_id))
+        return user_id
+    except ValueError:
+        logger.warning("Invalid user_id received (%s); falling back to demo UUID", user_id)
+        return "00000000-0000-0000-0000-000000000001"
+
+
+def save_entry_to_db(user_id: str, transcript: str, llm_data: dict):
+    """Handles creating/finding the user and saving the health entry to the database."""
+    db = SessionLocal()
+    try:
+        if user_id:
+            # ensure user exists
+            existing = db.query(User).get(user_id)
+            if not existing:
+                new_user = User(id=user_id)
+                db.add(new_user)
+                db.commit()
+        
+        entry = Entry(
+            user_id=user_id,
+            raw_transcript=transcript,
+            symptoms=llm_data.get("symptoms"),
+            severity=llm_data.get("severity"),
+            potential_triggers=llm_data.get("potential_triggers"),
+            mood=llm_data.get("mood"),
+            body_location=llm_data.get("body_location"),
+            time_context=llm_data.get("time_context"),
+            notes=llm_data.get("notes"),
+        )
+        db.add(entry)
+        db.commit()
+        return entry.id
+    except Exception as db_exc:
+        logger.error("Database error: %s\n%s", db_exc, traceback.format_exc())
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {db_exc}")
+    finally:
+        db.close()
+
+# --- API ENDPOINTS ---
+
 @app.get("/")
 def read_root():
     return {"status": "ok", "message": "VoiceHealth Tracker API"}
@@ -39,109 +111,106 @@ def read_root():
 def health_check():
     return {"status": "healthy"}
 
-# Placeholder routes - Noah will implement these
+
 @app.post("/api/log/quick")
 async def quick_log(request: Request):
-    """Forward incoming quick-log request to the LLM server, save result to DB.
+    """
+    Forward incoming quick-log request to the LLM server, validate via Max's filter, 
+    and save result to DB.
 
-    The request JSON should include at least ``user_id`` and ``transcript``.
+    The request JSON should include at least `user_id` and `transcript`.
     After forwarding to the LLM adapter, the returned JSON is expected to
-    contain the extracted fields (symptoms, severity, etc.). We persist an
-    ``Entry`` record using those values.
+    contain the extracted fields (symptoms, severity, etc.).
     """
     try:
         body = await request.json()
-        user_id = body.get("user_id")
+        user_id = normalize_user_id(body.get("user_id"))
         transcript = body.get("transcript")
 
-        if user_id:
-            try:
-                UUID(str(user_id))
-            except ValueError:
-                logger.warning("Invalid user_id received (%s); falling back to demo UUID", user_id)
-                user_id = "00000000-0000-0000-0000-000000000001"
+        if not transcript:
+            raise HTTPException(status_code=400, detail="Missing transcript")
 
-        # default location for the LLM adapter via Cloudflare tunnel
-        # use HTTPS so TLS is terminated by the tunnel
-        llm_base = os.getenv("LLM_SERVER_URL", "https://llm.flairup.dpdns.org")
-        llm_endpoint = f"{llm_base.rstrip('/')}/generate"
-        logger.info(f"Calling LLM endpoint: {llm_endpoint}")
-        try:
-            # Timeout for smaller models (1.7B-4B are ~10-30s, 8B+ can take 30-90s)
-            resp = requests.post(llm_endpoint, json={"input": body}, timeout=60)
-            resp.raise_for_status()
-            llm_json = resp.json()
-        except requests.RequestException as exc:
-            logger.error(f"LLM request failed: {exc}")
-            raise HTTPException(status_code=502, detail=f"LLM request failed: {exc}")
-        except ValueError as exc:
-            logger.error(f"LLM returned non-JSON response: {exc}")
-            raise HTTPException(status_code=502, detail="LLM returned non-JSON response")
+        llm_json = call_llm(body)
 
-        # record entry in database
-        db = SessionLocal()
-        entry_id = None
-        try:
-            if user_id:
-                # ensure user exists
-                existing = db.query(User).get(user_id)
-                if not existing:
-                    new_user = User(id=user_id)
-                    db.add(new_user)
-                    db.commit()
-            entry = Entry(
-                user_id=user_id,
-                raw_transcript=transcript,
-                symptoms=llm_json.get("symptoms"),
-                severity=llm_json.get("severity"),
-                potential_triggers=llm_json.get("potential_triggers"),
-                mood=llm_json.get("mood"),
-                body_location=llm_json.get("body_location"),
-                time_context=llm_json.get("time_context"),
-                notes=llm_json.get("notes"),
-            )
-            db.add(entry)
-            db.commit()
-            entry_id = entry.id
-            logger.info(f"Saved entry {entry_id} for user {user_id}")
-        except Exception as db_exc:
-            logger.error(f"Database error: {db_exc}\n{traceback.format_exc()}")
-            db.rollback()
-            raise HTTPException(status_code=500, detail=f"Database error: {db_exc}")
-        finally:
-            db.close()
+        llm_json_str = json.dumps(llm_json)
+        is_valid, error_msg = validate_voicehealth_json_py(llm_json_str)
 
+        if not is_valid:
+            logger.error("LLM output failed validation: %s", error_msg)
+            raise HTTPException(status_code=422, detail=f"LLM returned invalid data schema: {error_msg}")
+
+        entry_id = save_entry_to_db(user_id, transcript, llm_json)
         return {"status": "success", "entry_id": str(entry_id), "llm_response": llm_json}
     except HTTPException:
         raise
-    except Exception as e:
-        logger.error(f"Unhandled exception in quick_log: {e}\n{traceback.format_exc()}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+    except Exception as exc:
+        logger.error("Unhandled exception in quick_log: %s\n%s", exc, traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.post("/api/log/guided/start")
-def guided_log_start(data: dict):
-    """Placeholder for guided log start endpoint"""
+async def guided_log_start(request: Request):
+    """Starts a guided logging session by asking the LLM for follow-up questions."""
+    body = await request.json()
+    user_id = normalize_user_id(body.get("user_id"))
+    transcript = body.get("transcript")
+
+    if not transcript:
+        raise HTTPException(status_code=400, detail="Missing transcript")
+
+    llm_payload = {
+        "user_id": user_id,
+        "transcript": transcript,
+        "mode": "guided_start"
+    }
+
+    llm_json = call_llm(llm_payload)
+
     return {
         "status": "success",
-        "message": "Guided log start placeholder - Noah will implement",
-        "extracted_state": {"raw": "placeholder"},
-        "questions": [
-            "On a scale of 1-10, how severe is your pain?",
-            "Have you noticed any triggers or patterns?"
-        ],
-        "data_received": data
+        "message": "Guided log started",
+        "extracted_state": llm_json.get("extracted_state", {}),
+        "questions": llm_json.get("questions", ["Can you elaborate on your symptoms?"]),
+        "data_received": body
     }
 
 @app.post("/api/log/guided/finalize")
-def guided_log_finalize(data: dict):
-    """Placeholder for guided log finalize endpoint"""
+async def guided_log_finalize(request: Request):
+    """Finalizes a guided session, extracts data, validates it, and saves it."""
+    body = await request.json()
+    user_id = normalize_user_id(body.get("user_id"))
+    full_conversation = body.get("full_conversation") # e.g., "User: I hurt. Bot: Where? User: My head."
+
+    if not full_conversation:
+        raise HTTPException(status_code=400, detail="Missing full_conversation")
+
+    llm_payload = {
+        "user_id": user_id,
+        "transcript": full_conversation,
+        "mode": "guided_finalize"
+    }
+
+    # 1. Ask LLM to extract final data from the full conversation
+    llm_json = call_llm(llm_payload)
+
+    # 2. Validate the final extraction
+    llm_json_str = json.dumps(llm_json)
+    is_valid, error_msg = validate_voicehealth_json_py(llm_json_str)
+
+    if not is_valid:
+        logger.error("Finalize validation failed: %s", error_msg)
+        raise HTTPException(status_code=422, detail=f"Final data invalid: {error_msg}")
+
+    # 3. Save to DB
+    entry_id = save_entry_to_db(user_id, full_conversation, llm_json)
+
     return {
         "status": "success",
-        "message": "Guided log finalized - Noah will implement",
-        "symptoms": ["fatigue"],
-        "severity": 5,
-        "potential_triggers": ["lack of sleep"],
-        "data_received": data
+        "message": "Guided log finalized",
+        "entry_id": str(entry_id),
+        "symptoms": llm_json.get("symptoms", []),
+        "severity": llm_json.get("severity", 0),
+        "potential_triggers": llm_json.get("potential_triggers", []),
+        "data_received": body
     }
 
 @app.get("/api/insights/{user_id}")
