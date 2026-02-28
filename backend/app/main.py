@@ -17,6 +17,7 @@ from fastapi.exceptions import RequestValidationError
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # 2. Perform local imports (Check filenames!)
+from validate_voicehealth_json_py import validate_voicehealth_json_py
 from models.models import Entry, User
 from database import SessionLocal 
 
