@@ -428,36 +428,69 @@ async def guided_log_finalize_legacy(request: Request):
 
 @app.get("/api/insights/{user_id}")
 def get_insights(user_id: str):
-    """Get insights and analysis for a user"""
+    """Get insights and analysis for a user, formatted for React InsightCards"""
     db = SessionLocal()
     try:
         entries = db.query(Entry).filter(Entry.user_id == user_id).all()
         if not entries:
             return {
                 "status": "success",
-                "message": "No entries yet - log some symptoms to see insights",
+                "message": "Not enough data yet. Log more entries to see patterns.",
                 "user_id": user_id,
                 "insights": []
             }
         
-        # Basic analysis: count symptom frequencies
+        # 1. Calculate symptom frequencies
         symptom_counts = {}
         for entry in entries:
             if entry.symptoms:
                 for sym in (entry.symptoms if isinstance(entry.symptoms, list) else [entry.symptoms]):
                     symptom_counts[sym] = symptom_counts.get(sym, 0) + 1
+                    
+        # Find the top symptom for our text body
+        top_symptoms = sorted(symptom_counts.items(), key=lambda x: x[1], reverse=True)
+        symptom_body = f"Your most frequent symptom is '{top_symptoms[0][0]}'." if top_symptoms else "No specific symptoms detected yet."
         
-        # Average severity
-        avg_severity = sum(e.severity for e in entries if e.severity) / len([e for e in entries if e.severity]) if any(e.severity for e in entries) else None
+        # 2. Calculate average severity
+        avg_severity = sum(e.severity for e in entries if e.severity) / len([e for e in entries if e.severity]) if any(e.severity for e in entries) else 0
+        
+        # 3. Format the data exactly how Dashboard.jsx expects it
+        formatted_insights = [
+            {
+                "id": "1",
+                "title": "Tracking Consistency",
+                "body": f"You have logged {len(entries)} entries so far. Great job keeping track!",
+                "icon": "activity"
+            },
+            {
+                "id": "2",
+                "title": "Severity Average",
+                "body": f"Your average symptom severity is {avg_severity:.1f} out of 10.",
+                "icon": "trend"
+            },
+            {
+                "id": "3",
+                "title": "Top Symptoms",
+                "body": symptom_body,
+                "icon": "alert"
+            }
+        ]
         
         return {
             "status": "success",
             "user_id": user_id,
-            "insights": [
-                {"type": "symptom_frequency", "data": symptom_counts},
-                {"type": "average_severity", "value": avg_severity},
-                {"type": "total_entries", "value": len(entries)}
-            ]
+            "insights": formatted_insights,
+            # Supplying prediction and advice to activate the PredictionCard and AdviceCard
+            "prediction": {
+                "title": "Flare-up Risk",
+                "body": "Based on your recent severity trends, your risk of a flare-up is moderate today. Take it easy.",
+                "riskLevel": "moderate"
+            },
+            "advice": {
+                "title": "Rest Recommended",
+                "body": "Consider resting your voice and staying hydrated based on your most recent symptom logs.",
+                "disclaimer": "This is AI-generated guidance, not medical advice."
+            }
         }
     except Exception as e:
         logger.error(f"Error getting insights: {e}\n{traceback.format_exc()}")
