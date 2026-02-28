@@ -278,14 +278,9 @@ async def guided_log_start(request: Request):
         
         # System prompt for guided conversation
         system_prompt = (
-            "You are a helpful health assistant. Ask ONE short follow-up question about the user's symptoms.\n\n"
-            "Your FIRST response must be a question. Do NOT output JSON yet.\n\n"
-            "Ask about:\n"
-            "- Severity (1-10 scale)\n"
-            "- What triggered it (food, stress, activity)\n"
-            "- When it started\n"
-            "- Where it hurts\n\n"
-            "Keep the question under 15 words. Be conversational and empathetic."
+            "You are a health assistant. Your first question must ask about pain severity on a 1-10 scale.\n\n"
+            "Example: 'On a scale of 1-10, how severe is your pain?'\n\n"
+            "Keep it under 15 words. Do NOT output JSON or any other format."
         )
         
         # Initialize conversation
@@ -295,8 +290,18 @@ async def guided_log_start(request: Request):
         ]
         
         # Get first question from LLM
-        assistant_message = call_llm_chat(guided_sessions[session_id], temperature=0.9)
+        assistant_message = call_llm_chat(guided_sessions[session_id], temperature=0.3)
         guided_sessions[session_id].append({"role": "assistant", "content": assistant_message})
+        
+        # Detect broken LLM outputs (thinking tags, XML tags, etc.)
+        is_broken = ("<think>" in assistant_message.lower() or 
+                    assistant_message.strip().startswith("<") and 
+                    not assistant_message.strip().startswith("<?") and
+                    ">" in assistant_message[:50])  # Has closing bracket early = likely tag
+        if is_broken:
+            logger.warning("LLM returned broken output with tags, using default question")
+            assistant_message = "On a scale of 1-10, how severe is your pain or discomfort?"
+            guided_sessions[session_id][-1] = {"role": "assistant", "content": assistant_message}
         
         # Enforce at least one follow-up question before completion
         user_message_count = sum(1 for msg in guided_sessions[session_id] if msg["role"] == "user")
@@ -382,8 +387,22 @@ async def guided_log_respond(request: Request):
             )
         
         # Get next question or completion from LLM
-        assistant_message = call_llm_chat(guided_sessions[session_id], temperature=0.7)
+        assistant_message = call_llm_chat(guided_sessions[session_id], temperature=0.5)
         guided_sessions[session_id].append({"role": "assistant", "content": assistant_message})
+        
+        # Detect broken LLM outputs (thinking tags, XML tags, etc.)
+        is_broken = ("<think>" in assistant_message.lower() or 
+                    (assistant_message.strip().startswith("<") and 
+                     not assistant_message.strip().startswith("<?") and
+                     ">" in assistant_message[:50]))  # Has closing bracket early = likely tag
+        if is_broken:
+            logger.warning("LLM returned broken output with tags, using default question")
+            # Determine which question to ask based on user count
+            if user_message_count == 2:
+                assistant_message = "What do you think might have caused this? Any activities, injuries, foods, or stress?"
+            else:
+                assistant_message = "Can you tell me when this started?"
+            guided_sessions[session_id][-1] = {"role": "assistant", "content": assistant_message}
         
         # Enforce at least 3 user messages (initial + 2 answers) before allowing completion
         user_message_count = sum(1 for msg in guided_sessions[session_id] if msg["role"] == "user")
