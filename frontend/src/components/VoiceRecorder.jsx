@@ -27,6 +27,11 @@ function VoiceRecorder({ mode }) {
 
   // Initialize Web Speech API
   useEffect(() => {
+    console.log('🎤 Initializing Web Speech API');
+    console.log('Browser:', navigator.userAgent);
+    console.log('Has SpeechRecognition:', 'SpeechRecognition' in window);
+    console.log('Has webkitSpeechRecognition:', 'webkitSpeechRecognition' in window);
+
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       setError('Web Speech API is not supported in this browser. Please use Chrome or Edge.');
       return;
@@ -38,8 +43,14 @@ function VoiceRecorder({ mode }) {
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
+    console.log('✓ Web Speech API initialized');
+
+    recognition.onstart = () => {
+      console.log('🔴 Recording started - listening for audio');
+    };
 
     recognition.onresult = (event) => {
+      console.log('📝 Got result event:', event.results.length, 'results');
       let interimTranscript = '';
       let finalTranscript = '';
 
@@ -59,7 +70,7 @@ function VoiceRecorder({ mode }) {
     };
 
     recognition.onerror = (event) => {
-      console.error('Speech recognition error:', event.error);
+      console.error('❌ Speech recognition error:', event.error);
       
       // Retry on network errors up to 3 times
       if (event.error === 'network' && retryCountRef.current < 3) {
@@ -78,7 +89,8 @@ function VoiceRecorder({ mode }) {
       }
       
       if (event.error === 'no-speech') {
-        setError('No speech detected. Please try again.');
+        console.warn('⚠️ No speech detected - microphone may not be working or browser may not support it well');
+        setError('No speech detected. Please try again. (Check mic permissions & browser support)');
       } else if (event.error === 'not-allowed') {
         setError('Microphone access denied. Please allow microphone access.');
       } else if (event.error === 'network') {
@@ -189,6 +201,7 @@ function VoiceRecorder({ mode }) {
   };
 
   const startRecording = async () => {
+    console.log('📢 startRecording called');
     setError(null);
     setResult(null);
     setTranscript('');
@@ -198,13 +211,16 @@ function VoiceRecorder({ mode }) {
 
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const shouldSkipMicPreflight = !window.isSecureContext && !isLocalhost;
+    console.log('isLocalhost:', isLocalhost, 'shouldSkipMicPreflight:', shouldSkipMicPreflight);
 
     try {
       if (!shouldSkipMicPreflight) {
+        console.log('🔐 Requesting microphone permission...');
         await ensureMicrophonePermission();
       } else {
         console.warn('Skipping getUserMedia preflight on non-secure origin; attempting SpeechRecognition directly.');
       }
+      console.log('✓ Permissions OK, starting speech recognition');
       setIsRecording(true);
       recognitionRef.current?.start();
     } catch (e) {
