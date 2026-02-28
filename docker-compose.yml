@@ -4,11 +4,12 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./backend:/app # This maps your VM folder to the container so code updates instantly when you save
+      - ./backend:/app
 
   frontend:
     build: ./frontend
     ports:
       - "5173:5173"
     volumes:
-      - ./frontend:/app # Same instant-update magic for the frontend
+      - ./frontend:/app
+      - /app/node_modules  # Prevent volume mount from overwriting node_modules
