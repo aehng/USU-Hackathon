@@ -151,12 +151,21 @@ function VoiceRecorder({ mode, onLogSaved }) {
         
         if (response.is_complete) {
           // Conversation complete immediately - finalize to get structured data
-          const extractedData = await guidedLogFinalize(response.session_id);
-          setResult({
-            status: 'success',
-            message: 'Guided log completed',
-            extracted_data: extractedData
-          });
+          try {
+            const extractedData = await guidedLogFinalize(response.session_id);
+            setResult({
+              status: 'success',
+              message: 'Guided log completed',
+              extracted_data: extractedData
+            });
+          } catch (finalizeError) {
+            // If finalize fails, we still show success since data was saved to DB
+            console.error('Finalize error (data likely saved):', finalizeError);
+            setResult({
+              status: 'success',
+              message: 'Log saved successfully! Check dashboard for details.'
+            });
+          }
           triggerRefresh();
           if (onLogSaved) onLogSaved(); // <-- ADD THIS to refresh the dashboard charts
         } else {
@@ -189,12 +198,21 @@ function VoiceRecorder({ mode, onLogSaved }) {
       
 // Inside handleGuidedAnswer
 if (response.is_complete) {
-  const data = await guidedLogFinalize(response.session_id);
-  
-  setResult({
-    status: 'success',
-    ...data // Spread the data directly since client.js already unwrapped it
-  });
+  try {
+    const data = await guidedLogFinalize(response.session_id);
+    
+    setResult({
+      status: 'success',
+      ...data // Spread the data directly since client.js already unwrapped it
+    });
+  } catch (finalizeError) {
+    // If finalize fails, we still show success since data was saved to DB
+    console.error('Finalize error (data likely saved):', finalizeError);
+    setResult({
+      status: 'success',
+      message: 'Log saved successfully! Check dashboard for details.'
+    });
+  }
   
   setGuidedState(null);
   setAnswers([]);

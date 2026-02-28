@@ -144,7 +144,7 @@ def call_llm(payload: dict):
     logger.info("Calling LLM endpoint: %s", llm_endpoint)
     try:
         # Timeout for smaller models (1.7B-4B are ~10-30s, 8B+ can take 30-90s)
-        resp = requests.post(llm_endpoint, json={"input": payload}, timeout=60)
+        resp = requests.post(llm_endpoint, json=payload, timeout=60)
         resp.raise_for_status()
         return resp.json()
     except requests.RequestException as exc:
@@ -936,9 +936,19 @@ def get_insights(user_id: str):
         # 2. Build the payload for the Lemonade LLM Server
         # We pass the recent stats so the LLM has context to generate personalized advice
         recent_entries = entries[:5]
+        
+        # Build a summary transcript for the LLM
+        transcript_summary = f"User health summary: {current_entry_count} total entries. "
+        transcript_summary += f"Average severity: {round(avg_severity, 1)}/10. "
+        if top_symptoms:
+            transcript_summary += f"Most common symptoms: {', '.join([s[0] for s in top_symptoms[:3]])}. "
+        if recent_entries and recent_entries[0].raw_transcript:
+            transcript_summary += f"Latest entry: {recent_entries[0].raw_transcript}"
+        
         llm_payload = {
             "mode": "generate_insights",
             "user_id": user_id,
+            "transcript": transcript_summary,  # Required field for /generate endpoint
             "context": {
                 "total_entries": current_entry_count,
                 "average_severity": round(avg_severity, 1),

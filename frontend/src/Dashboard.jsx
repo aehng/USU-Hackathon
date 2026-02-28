@@ -254,12 +254,9 @@ export default function Dashboard() {
                     className="text-slate-500"
                   />
                   
-                  {/* --- NEW CLEAN TOOLTIP HERE --- */}
-                 <Tooltip 
-                    // 'shared: false' ensures the tooltip focuses ONLY on the active dot
+                  <Tooltip 
                     shared={false} 
-                    // 'intersect: true' makes it trigger exactly when you are over the point
-                    intersect={true}
+                    intersect={false}
                     cursor={{ stroke: '#cbd5e1', strokeWidth: 1 }}
                     contentStyle={{ 
                       backgroundColor: '#ffffff', 
@@ -267,10 +264,7 @@ export default function Dashboard() {
                       border: '1px solid #e2e8f0', 
                       boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
                     }}
-                    // This is the magic line: 'value' and 'name' are passed dynamically for EACH point
-                    formatter={(value, name, props) => {
-                      return [`${value} / 10`, "Intensity"];
-                    }}
+                    formatter={(value) => [`${value} / 10`, "Intensity"]}
                     labelFormatter={(label) => `Date: ${label}`}
                   />
                   
