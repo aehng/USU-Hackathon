@@ -1,12 +1,19 @@
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
 import uvicorn
 import os
 import requests
+import logging
+import traceback
 
 # database imports
 from database import SessionLocal
 from models.models import Entry, User
+
+# Configure logging to show errors
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="VoiceHealth Tracker API")
 
@@ -41,56 +48,81 @@ async def quick_log(request: Request):
     contain the extracted fields (symptoms, severity, etc.). We persist an
     ``Entry`` record using those values.
     """
-    body = await request.json()
-    user_id = body.get("user_id")
-    transcript = body.get("transcript")
-
-    # default location for the LLM adapter via Cloudflare tunnel
-    # use HTTPS so TLS is terminated by the tunnel
-    llm_base = os.getenv("LLM_SERVER_URL", "https://llm.flairup.dpdns.org")
-    llm_endpoint = f"{llm_base.rstrip('/')}/generate"
     try:
-        # Timeout for smaller models (1.7B-4B are ~10-30s, 8B+ can take 30-90s)
-        resp = requests.post(llm_endpoint, json={"input": body}, timeout=60)
-        resp.raise_for_status()
-        llm_json = resp.json()
-    except requests.RequestException as exc:
-        raise HTTPException(status_code=502, detail=f"LLM request failed: {exc}")
-    except ValueError:
-        raise HTTPException(status_code=502, detail="LLM returned non-JSON response")
+        body = await request.json()
+        user_id = body.get("user_id")
+        transcript = body.get("transcript")
 
-    # record entry in database
-    db = SessionLocal()
-    entry_id = None
-    try:
-        if user_id:
-            # ensure user exists
-            existing = db.query(User).get(user_id)
-            if not existing:
-                new_user = User(id=user_id)
-                db.add(new_user)
-                db.commit()
-        entry = Entry(
-            user_id=user_id,
-            raw_transcript=transcript,
-            symptoms=llm_json.get("symptoms"),
-            severity=llm_json.get("severity"),
-            potential_triggers=llm_json.get("potential_triggers"),
-            mood=llm_json.get("mood"),
-            body_location=llm_json.get("body_location"),
-            time_context=llm_json.get("time_context"),
-            notes=llm_json.get("notes"),
-        )
-        db.add(entry)
-        db.commit()
-        entry_id = entry.id
-    except Exception as db_exc:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Database error: {db_exc}")
-    finally:
-        db.close()
+        # Check if we should use mock mode (for testing without LLM server)
+        use_mock = os.getenv("USE_MOCK_LLM", "false").lower() == "true"
+        
+        if use_mock:
+            # Mock LLM response for testing
+            llm_json = {
+                "symptoms": ["headache", "fatigue"],
+                "severity": 5,
+                "potential_triggers": ["stress", "poor sleep"],
+                "mood": "tired",
+                "body_location": "head",
+                "time_context": "morning",
+                "notes": "Mock response for testing"
+            }
+            logger.info("Using mock LLM response")
+        else:
+            # default location for the LLM adapter via Cloudflare tunnel
+            # use HTTPS so TLS is terminated by the tunnel
+            llm_base = os.getenv("LLM_SERVER_URL", "https://llm.flairup.dpdns.org")
+            llm_endpoint = f"{llm_base.rstrip('/')}/generate"
+            logger.info(f"Calling LLM endpoint: {llm_endpoint}")
+            try:
+                # Timeout for smaller models (1.7B-4B are ~10-30s, 8B+ can take 30-90s)
+                resp = requests.post(llm_endpoint, json={"input": body}, timeout=60)
+                resp.raise_for_status()
+                llm_json = resp.json()
+            except requests.RequestException as exc:
+                logger.error(f"LLM request failed: {exc}")
+                raise HTTPException(status_code=502, detail=f"LLM request failed: {exc}")
+            except ValueError as exc:
+                logger.error(f"LLM returned non-JSON response: {exc}")
+                raise HTTPException(status_code=502, detail="LLM returned non-JSON response")
 
-    return {"status": "success", "entry_id": str(entry_id), "llm_response": llm_json}
+        # record entry in database
+        db = SessionLocal()
+        entry_id = None
+        try:
+            if user_id:
+                # ensure user exists
+                existing = db.query(User).get(user_id)
+                if not existing:
+                    new_user = User(id=user_id)
+                    db.add(new_user)
+                    db.commit()
+            entry = Entry(
+                user_id=user_id,
+                raw_transcript=transcript,
+                symptoms=llm_json.get("symptoms"),
+                severity=llm_json.get("severity"),
+                potential_triggers=llm_json.get("potential_triggers"),
+                mood=llm_json.get("mood"),
+                body_location=llm_json.get("body_location"),
+                time_context=llm_json.get("time_context"),
+                notes=llm_json.get("notes"),
+            )
+            db.add(entry)
+            db.commit()
+            entry_id = entry.id
+            logger.info(f"Saved entry {entry_id} for user {user_id}")
+        except Exception as db_exc:
+            logger.error(f"Database error: {db_exc}\n{traceback.format_exc()}")
+            db.rollback()
+            raise HTTPException(status_code=500, detail=f"Database error: {db_exc}")
+        finally:
+            db.close()
+
+        return {"status": "success", "entry_id": str(entry_id), "llm_response": llm_json}
+    except Exception as e:
+        logger.error(f"Unhandled exception in quick_log: {e}\n{traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 @app.post("/api/log/guided/start")
 def guided_log_start(data: dict):
@@ -118,17 +150,87 @@ def guided_log_finalize(data: dict):
         "data_received": data
     }
 
-@app.get("/api/insights")
+@app.get("/api/insights/{user_id}")
 def get_insights(user_id: str):
-    """Placeholder for insights endpoint"""
-    return {
-        "status": "success",
-        "message": "Insights placeholder - Clayton & Noah will implement",
-        "user_id": user_id,
-        "insights": []
-    }
+    """Get insights and analysis for a user"""
+    db = SessionLocal()
+    try:
+        entries = db.query(Entry).filter(Entry.user_id == user_id).all()
+        if not entries:
+            return {
+                "status": "success",
+                "message": "No entries yet - log some symptoms to see insights",
+                "user_id": user_id,
+                "insights": []
+            }
+        
+        # Basic analysis: count symptom frequencies
+        symptom_counts = {}
+        for entry in entries:
+            if entry.symptoms:
+                for sym in (entry.symptoms if isinstance(entry.symptoms, list) else [entry.symptoms]):
+                    symptom_counts[sym] = symptom_counts.get(sym, 0) + 1
+        
+        # Average severity
+        avg_severity = sum(e.severity for e in entries if e.severity) / len([e for e in entries if e.severity]) if any(e.severity for e in entries) else None
+        
+        return {
+            "status": "success",
+            "user_id": user_id,
+            "insights": [
+                {"type": "symptom_frequency", "data": symptom_counts},
+                {"type": "average_severity", "value": avg_severity},
+                {"type": "total_entries", "value": len(entries)}
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error getting insights: {e}\n{traceback.format_exc()}")
+        return {"status": "error", "message": str(e)}
+    finally:
+        db.close()
 
-@app.get("/api/history")
+@app.get("/api/stats/{user_id}")
+def get_stats(user_id: str):
+    """Get statistics for a user"""
+    db = SessionLocal()
+    try:
+        entries = db.query(Entry).filter(Entry.user_id == user_id).all()
+        
+        if not entries:
+            return {
+                "status": "success",
+                "user_id": user_id,
+                "total_entries": 0,
+                "avg_severity": None,
+                "message": "No entries yet"
+            }
+        
+        # Calculate stats
+        total_entries = len(entries)
+        avg_severity = sum(e.severity for e in entries if e.severity) / len([e for e in entries if e.severity]) if any(e.severity for e in entries) else None
+        
+        # Collect all triggers
+        all_triggers = []
+        for entry in entries:
+            if entry.potential_triggers:
+                triggers = entry.potential_triggers if isinstance(entry.potential_triggers, list) else [entry.potential_triggers]
+                all_triggers.extend(triggers)
+        
+        return {
+            "status": "success",
+            "user_id": user_id,
+            "total_entries": total_entries,
+            "avg_severity": avg_severity,
+            "top_triggers": list(set(all_triggers))[:5] if all_triggers else [],
+            "date_created": str(entries[0].created_at) if entries else None
+        }
+    except Exception as e:
+        logger.error(f"Error getting stats: {e}\n{traceback.format_exc()}")
+        return {"status": "error", "message": str(e)}
+    finally:
+        db.close()
+
+@app.get("/api/history/{user_id}")
 def get_history(user_id: str):
     """Placeholder for history endpoint"""
     return {

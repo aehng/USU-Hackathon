@@ -16,15 +16,13 @@ import {
 } from "recharts";
 import InsightCard from "./components/InsightCard.jsx";
 import PredictionCard from "./components/PredictionCard.jsx";
-import { API_BASE_URL } from "./api/client.js";
+import { API_BASE_URL, DEMO_USER_ID } from "./api/client.js";
 import {
   MOCK_INSIGHTS,
   MOCK_STATS,
   NOT_ENOUGH_DATA_INSIGHTS,
   NOT_ENOUGH_DATA_STATS,
 } from "./mock/dashboardData.js";
-
-const DEMO_USER_ID = "00000000-0000-0000-0000-000000000001";
 
 const CHART_COLORS = [
   "#0ea5e9", // sky-500
