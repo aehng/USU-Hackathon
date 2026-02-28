@@ -107,6 +107,35 @@ def call_llm_chat(messages: List[Dict], temperature: float = 0.7):
         raise HTTPException(status_code=502, detail=f"LLM chat service unavailable: {str(e)}")
 
 
+def sanitize_llm_data(llm_data: dict) -> dict:
+    """Fix common LLM output issues to pass validation and database constraints.
+    
+    - Converts severity=0 to severity=5 (mild default)
+    - Ensures severity is in range 1-10
+    - Ensures required fields exist with proper types
+    """
+    sanitized = llm_data.copy()
+    
+    # Fix severity: must be 1-10 for database constraint
+    severity = sanitized.get("severity")
+    if severity is None or not isinstance(severity, (int, float)):
+        sanitized["severity"] = 5  # Default to mild
+    elif severity < 1:
+        sanitized["severity"] = 1  # Minimum severity
+    elif severity > 10:
+        sanitized["severity"] = 10  # Maximum severity
+    else:
+        sanitized["severity"] = int(severity)
+    
+    # Ensure required arrays exist
+    if not isinstance(sanitized.get("symptoms"), list):
+        sanitized["symptoms"] = []
+    if not isinstance(sanitized.get("potential_triggers"), list):
+        sanitized["potential_triggers"] = []
+    
+    return sanitized
+
+
 def save_entry_to_db(user_id: str, transcript: str, llm_data: dict):
     """Handles creating/finding the user and saving the health entry to the database."""
     db = SessionLocal()
@@ -119,11 +148,16 @@ def save_entry_to_db(user_id: str, transcript: str, llm_data: dict):
                 db.add(new_user)
                 db.commit()
         
+        # Handle severity: must be 1-10 or NULL (0 becomes NULL)
+        severity = llm_data.get("severity")
+        if severity is not None and (severity < 1 or severity > 10):
+            severity = None
+        
         entry = Entry(
             user_id=user_id,
             raw_transcript=transcript,
             symptoms=llm_data.get("symptoms"),
-            severity=llm_data.get("severity"),
+            severity=severity,
             potential_triggers=llm_data.get("potential_triggers"),
             mood=llm_data.get("mood"),
             body_location=llm_data.get("body_location"),
@@ -206,6 +240,9 @@ async def quick_log(request: Request):
             raise HTTPException(status_code=400, detail="Missing transcript")
 
         llm_json = call_llm(body)
+        
+        # Sanitize LLM output to fix common issues (e.g., severity=0)
+        llm_json = sanitize_llm_data(llm_json)
 
         llm_json_str = json.dumps(llm_json)
         is_valid, error_msg = validate_voicehealth_json_py(llm_json_str)
@@ -346,6 +383,7 @@ async def guided_log_respond(request: Request):
 def _extract_completion_data(completion_message: str) -> dict:
     """Extract JSON data from COMPLETE:{ } message."""
     try:
+        # Find the JSON object in the message
         json_str = completion_message.replace("COMPLETE:", "").strip()
         
         # Remove markdown code blocks if present
@@ -359,6 +397,12 @@ def _extract_completion_data(completion_message: str) -> dict:
                 elif in_code_block:
                     json_lines.append(line)
             json_str = "\n".join(json_lines).strip()
+        
+        # Find the actual JSON object - extract from first { to last }
+        first_brace = json_str.find('{')
+        last_brace = json_str.rfind('}')
+        if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+            json_str = json_str[first_brace:last_brace+1]
         
         return json.loads(json_str)
     except json.JSONDecodeError as e:
@@ -389,6 +433,9 @@ def _finalize_guided_session(session_id: str, user_id: str) -> dict:
             "user_id": user_id,
             "transcript": f"Conversation:\n{full_transcript}\n\nExtract the final symptom data from this conversation."
         })
+        
+        # Sanitize LLM output to fix common issues (e.g., severity=0)
+        llm_data = sanitize_llm_data(llm_data)
         
         # Validate the extracted data
         is_valid, error_msg = validate_voicehealth_json_py(json.dumps(llm_data))
@@ -482,8 +529,11 @@ async def guided_log_finalize_legacy(request: Request):
 
     # 1. Ask LLM to extract final data from the full conversation
     llm_json = call_llm(llm_payload)
+    
+    # 2. Sanitize LLM output to fix common issues (e.g., severity=0)
+    llm_json = sanitize_llm_data(llm_json)
 
-    # 2. Validate the final extraction
+    # 3. Validate the final extraction
     llm_json_str = json.dumps(llm_json)
     is_valid, error_msg = validate_voicehealth_json_py(llm_json_str)
 

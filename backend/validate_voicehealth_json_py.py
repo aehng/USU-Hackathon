@@ -18,15 +18,15 @@ import sys
 from typing import Optional, Tuple
 
 
-SEVERITY_MIN = 0
-SEVERITY_MAX = 10
+SEVERITY_MIN = 1  # DO NOT CHANGE - Database constraint requires severity >= 1
+SEVERITY_MAX = 10  # DO NOT CHANGE - Database constraint requires severity <= 10
 
 
 def validate_voicehealth_json_py(json_string: Optional[str]) -> Tuple[bool, Optional[str]]:
     """
     Validate that json_string is a JSON object with:
       - symptoms: array
-      - severity: number in [0, 10]
+      - severity: number in [1, 10]
       - potential_triggers: array
 
     Returns (is_valid, error_message_or_None).
