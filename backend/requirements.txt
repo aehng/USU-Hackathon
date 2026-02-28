@@ -7,3 +7,5 @@ requests
 sqlalchemy
 psycopg2-binary
 pytz
+faster-whisper
+python-multipart
