@@ -358,6 +358,9 @@ def _extract_completion_data(completion_message: str) -> dict:
             json_str = "\n".join(json_lines).strip()
         
         return json.loads(json_str)
+    except json.JSONDecodeError as e:
+        logger.error(f"Failed to parse completion JSON: {completion_message}")
+        raise HTTPException(status_code=500, detail="Failed to parse completion data")
 
 
 def _finalize_guided_session(session_id: str, user_id: str) -> dict:
