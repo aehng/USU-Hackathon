@@ -229,7 +229,7 @@ async def quick_log(request: Request):
 
     The request JSON should include at least `user_id` and `transcript`.
     After forwarding to the LLM adapter, the returned JSON is expected to
-    contain the extracted fields (symptoms, severity, etc.).
+    contain the extracted fields (symptoms, severity, cause/triggers, time etc.).
     """
     try:
         body = await request.json()
