@@ -131,10 +131,6 @@ function VoiceRecorder({ mode }) {
   }, [isRecording]);
 
   const ensureMicrophonePermission = async () => {
-    if (!window.isSecureContext) {
-      throw new Error('Microphone access requires HTTPS or localhost. Open the app as https://... or http://localhost:5173.');
-    }
-
     if (!navigator.mediaDevices?.getUserMedia) {
       throw new Error('Microphone API is unavailable in this browser context. Please use Chrome or Edge.');
     }
@@ -143,8 +139,12 @@ function VoiceRecorder({ mode }) {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       activeStreamRef.current = stream;
     } catch (error) {
-      if (error.name === 'NotAllowedError' || error.name === 'SecurityError') {
-        throw new Error('Microphone permission is blocked. In Edge: click the lock icon in the address bar -> Site permissions -> Microphone -> Allow, then try again.');
+      if (error.name === 'NotAllowedError') {
+        throw new Error('Microphone permission denied. Click the lock icon in the address bar → Site permissions → Microphone → Allow, then try again.');
+      }
+
+      if (error.name === 'SecurityError') {
+        throw new Error('Microphone access blocked by browser security. Try accessing via https:// or localhost instead of the LAN IP, or check your site permissions.');
       }
 
       if (error.name === 'NotFoundError') {
