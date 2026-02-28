@@ -58,7 +58,8 @@ async def quick_log(request: Request):
             try:
                 UUID(str(user_id))
             except ValueError:
-                raise HTTPException(status_code=400, detail="user_id must be a valid UUID")
+                logger.warning("Invalid user_id received (%s); falling back to demo UUID", user_id)
+                user_id = "00000000-0000-0000-0000-000000000001"
 
         # default location for the LLM adapter via Cloudflare tunnel
         # use HTTPS so TLS is terminated by the tunnel
