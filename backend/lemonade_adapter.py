@@ -21,7 +21,7 @@ class SymptomExtraction(BaseModel):
     severity: int  # 1-10 scale
     potential_triggers: Optional[List[str]] = []  # e.g., ["stress", "caffeine", "lack of sleep"]
     mood: Optional[str] = None  # e.g., "anxious", "tired", "fine"
-    body_location: Optional[str] = None  # e.g., "head", "stomach", "chest"
+    body_location: Optional[List[str]] = None  # e.g., ["head"], ["stomach", "chest"]
     time_context: Optional[str] = None  # e.g., "since morning", "for 2 hours", "all day"
     notes: Optional[str] = None  # Any additional context
 
@@ -147,7 +147,7 @@ async def generate(request: Request):
         '  "severity": 5,\n'
         '  "potential_triggers": ["trigger1"],\n'
         '  "mood": "optional string or null",\n'
-        '  "body_location": "optional string or null",\n'
+        '  "body_location": ["location1", "location2"] or null,\n'
         '  "time_context": "optional string or null",\n'
         '  "notes": "optional string or null"\n'
         "}"
