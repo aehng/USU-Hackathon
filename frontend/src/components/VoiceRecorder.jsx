@@ -3,7 +3,7 @@ import { RefreshContext } from '../context/RefreshContext';
 import { quickLog, guidedLogStart, guidedLogRespond, guidedLogFinalize, transcribeAudio } from '../api/client';
 import './VoiceRecorder.css';
 
-function VoiceRecorder({ mode }) {
+function VoiceRecorder({ mode, onLogSaved }) {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [manualText, setManualText] = useState('');
@@ -141,7 +141,8 @@ function VoiceRecorder({ mode }) {
         const response = await quickLog(inputText);
         console.log('✅ Got response:', response);
         setResult(response);
-        triggerRefresh();
+        triggerRefresh(); // This handles context/history
+        if (onLogSaved) onLogSaved(); // <-- ADD THIS to refresh the dashboard charts
       } else {
         // Guided mode
         console.log('🎯 Starting guided log...');
@@ -157,6 +158,7 @@ function VoiceRecorder({ mode }) {
             extracted_data: extractedData
           });
           triggerRefresh();
+          if (onLogSaved) onLogSaved(); // <-- ADD THIS to refresh the dashboard charts
         } else {
           // More questions needed
           setGuidedState(response);
@@ -196,6 +198,7 @@ function VoiceRecorder({ mode }) {
         setGuidedState(null);
         setAnswers([]);
         triggerRefresh();
+        if (onLogSaved) onLogSaved(); // <-- ADD THIS to refresh the dashboard charts
       } else {
         // More questions - update state
         setGuidedState(response);
