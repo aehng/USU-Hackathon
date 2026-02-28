@@ -10,6 +10,38 @@
   justify-content: space-between;
 }
 
+.input-method-toggle {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #f0f0f0;
+  padding-bottom: 16px;
+}
+
+.input-method-toggle button {
+  flex: 1;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  color: #999;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -16px;
+  padding-bottom: 28px;
+}
+
+.input-method-toggle button.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+}
+
+.input-method-toggle button:hover:not(.active) {
+  color: #333;
+}
+
 .instructions {
   font-size: 18px;
   color: #666;
@@ -229,6 +261,99 @@
   background: #666;
 }
 
+.typed-input {
+  margin-top: 20px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.typed-input textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 110px;
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.typed-input textarea:focus {
+  outline: none;
+  border-color: #2196F3;
+}
+
+.typed-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.type-mode-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.type-instructions {
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.type-instructions p {
+  font-size: 16px;
+  color: #666;
+  line-height: 1.5;
+}
+
+.text-input-area {
+  width: 100%;
+  padding: 16px;
+  border: 2px solid #e0e0e0;
+  border-radius: 12px;
+  font-size: 16px;
+  line-height: 1.6;
+  font-family: inherit;
+  resize: vertical;
+  min-height: 140px;
+}
+
+.text-input-area:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+.type-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.type-actions button {
+  padding: 14px 24px;
+  font-size: 16px;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  background: #4CAF50;
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.type-actions button:hover:not(:disabled) {
+  background: #45a049;
+}
+
+.type-actions button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .voice-recorder.success {
   background: linear-gradient(135deg, #81c784 0%, #66bb6a 100%);
   color: white;
@@ -314,21 +439,178 @@
 @media (max-width: 480px) {
   .voice-recorder {
     padding: 20px;
-    min-height: 350px;
-  }
-  
-  .mic-button {
-    width: 100px;
-    height: 100px;
-    font-size: 40px;
+    min-height: 100vh;
+    border-radius: 0;
   }
   
   .instructions {
     font-size: 16px;
+    margin-bottom: 32px;
   }
-  
+
+  .mic-button {
+    width: 100px;
+    height: 100px;
+    font-size: 40px;
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.35);
+  }
+
+  .mic-button:active:not(:disabled) {
+    transform: scale(0.92);
+  }
+
+  .stop-button {
+    padding: 18px 40px;
+    font-size: 16px;
+    border-radius: 10px;
+  }
+
   .live-transcript {
     font-size: 14px;
     padding: 16px;
+    min-height: 120px;
+    max-height: 300px;
   }
-}
+
+  .recording-indicator {
+    font-size: 16px;
+    gap: 10px;
+  }
+
+  .recording-warning {
+    font-size: 14px;
+    padding: 10px;
+  }
+
+  .recorder-active {
+    gap: 16px;
+  }
+
+  .submit-button {
+    width: 100%;
+    padding: 16px;
+    font-size: 16px;
+    margin-top: 12px;
+  }
+
+  .transcript-preview {
+    margin-top: 16px;
+    padding: 12px;
+  }
+
+  .transcript-preview p {
+    font-size: 14px;
+  }
+
+  .typed-input {
+    gap: 10px;
+  }
+
+  .typed-input textarea {
+    min-height: 120px;
+    padding: 14px;
+    font-size: 16px;
+  }
+
+  .typed-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .typed-actions button {
+    width: 100%;
+    padding: 14px;
+  }
+
+  .cancel-button {
+    width: 100%;
+    padding: 14px;
+    margin-top: 0;
+  }
+
+  .error-message {
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+
+  .error-message p {
+    font-size: 14px;
+  }
+
+  .error-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .error-actions button {
+    width: 100%;
+    padding: 12px;
+    font-size: 14px;
+  }
+
+  .voice-recorder.success {
+    min-height: 100vh;
+  }
+
+  .success-message h2 {
+    font-size: 28px;
+  }
+
+  .result-summary {
+    padding: 16px;
+  }
+
+  .result-item {
+    font-size: 15px;
+    margin-bottom: 10px;
+  }
+
+  .reset-button {
+    width: 100%;
+    padding: 14px;
+    font-size: 15px;
+  }
+
+  .voice-recorder.guided h3 {
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+
+  .question {
+    font-size: 16px;
+    margin-bottom: 20px;
+  }
+
+  .voice-recorder.guided input {
+    padding: 14px;
+    font-size: 16px;
+  }
+
+  .hint {
+    font-size: 12px;
+  }
+
+  .loading {
+    min-height: 200px;
+  }
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #e0e0e0;
+  }
+
+  .mode-toggle {
+    margin-bottom: 20px;
+  }
+
+  .input-method-toggle {
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    gap: 8px;
+  }
+
+  .input-method-toggle button {
+    font-size: 14px;
+    padding: 10px 12px;
+  }

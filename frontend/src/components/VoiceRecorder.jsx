@@ -6,6 +6,9 @@ import './VoiceRecorder.css';
 function VoiceRecorder({ mode }) {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [manualText, setManualText] = useState('');
+  const [isTypeMode, setIsTypeMode] = useState(false);
+  const [inputMethod, setInputMethod] = useState('voice'); // 'voice' or 'type'
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
@@ -20,10 +23,16 @@ function VoiceRecorder({ mode }) {
   const recognitionRef = useRef(null);
   const timerRef = useRef(null);
   const activeStreamRef = useRef(null);
+  const retryCountRef = useRef(0);
   const { triggerRefresh } = useContext(RefreshContext);
 
   // Initialize Web Speech API
   useEffect(() => {
+    console.log('🎤 Initializing Web Speech API');
+    console.log('Browser:', navigator.userAgent);
+    console.log('Has SpeechRecognition:', 'SpeechRecognition' in window);
+    console.log('Has webkitSpeechRecognition:', 'webkitSpeechRecognition' in window);
+
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       setError('Web Speech API is not supported in this browser. Please use Chrome or Edge.');
       return;
@@ -35,8 +44,14 @@ function VoiceRecorder({ mode }) {
     recognition.continuous = true;
     recognition.interimResults = true;
     recognition.lang = 'en-US';
+    console.log('✓ Web Speech API initialized');
+
+    recognition.onstart = () => {
+      console.log('🔴 Recording started - listening for audio');
+    };
 
     recognition.onresult = (event) => {
+      console.log('📝 Got result event:', event.results.length, 'results');
       let interimTranscript = '';
       let finalTranscript = '';
 
@@ -56,11 +71,31 @@ function VoiceRecorder({ mode }) {
     };
 
     recognition.onerror = (event) => {
-      console.error('Speech recognition error:', event.error);
+      console.error('❌ Speech recognition error:', event.error);
+      
+      // Retry on network errors up to 3 times
+      if (event.error === 'network' && retryCountRef.current < 3) {
+        retryCountRef.current++;
+        console.log(`Network error, retrying... (${retryCountRef.current}/3)`);
+        setError(`Network issue, retrying... (${retryCountRef.current}/3)`);
+        
+        setTimeout(() => {
+          try {
+            recognitionRef.current?.start();
+          } catch (e) {
+            console.log('Retry failed:', e);
+          }
+        }, 500);
+        return;
+      }
+      
       if (event.error === 'no-speech') {
-        setError('No speech detected. Please try again.');
+        console.warn('⚠️ No speech detected - microphone may not be working or browser may not support it well');
+        setError('No speech detected. Please try again. (Check mic permissions & browser support)');
       } else if (event.error === 'not-allowed') {
         setError('Microphone access denied. Please allow microphone access.');
+      } else if (event.error === 'network') {
+        setError('Network error after 3 retries. Please check your internet connection and try again.');
       } else {
         setError(`Recognition error: ${event.error}`);
       }
@@ -131,39 +166,62 @@ function VoiceRecorder({ mode }) {
   }, [isRecording]);
 
   const ensureMicrophonePermission = async () => {
-    if (!window.isSecureContext) {
-      throw new Error('Microphone access requires HTTPS or localhost. Open the app as https://... or http://localhost:5173.');
-    }
+    // Log what we're detecting for debugging
+    console.log('Checking mic API availability...');
+    console.log('navigator.mediaDevices:', navigator.mediaDevices);
+    console.log('navigator.mediaDevices?.getUserMedia:', navigator.mediaDevices?.getUserMedia);
 
-    if (!navigator.mediaDevices?.getUserMedia) {
-      throw new Error('Microphone API is unavailable in this browser context. Please use Chrome or Edge.');
-    }
-
+    // Try to get microphone access directly
+    // Some browsers require this to trigger the permission prompt
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       activeStreamRef.current = stream;
+      console.log('Microphone access granted');
+      return;
     } catch (error) {
-      if (error.name === 'NotAllowedError' || error.name === 'SecurityError') {
-        throw new Error('Microphone permission is blocked. In Edge: click the lock icon in the address bar -> Site permissions -> Microphone -> Allow, then try again.');
+      console.error('Microphone access error:', error.name, error.message);
+      
+      if (error.name === 'NotAllowedError') {
+        throw new Error('Microphone permission denied. Click the lock icon in the address bar → Site permissions → Microphone → Allow, then try again.');
+      }
+
+      if (error.name === 'SecurityError') {
+        throw new Error('Microphone access blocked by browser security. Try https:// or check your site permissions in the lock icon.');
       }
 
       if (error.name === 'NotFoundError') {
         throw new Error('No microphone was found on this device.');
       }
 
-      throw new Error('Could not access microphone. Please check browser permissions and try again.');
+      if (error.name === 'NotReadableError' || error.message?.includes('Could not start audio source')) {
+        throw new Error('Microphone is in use by another application. Close other apps using the mic and try again.');
+      }
+
+      throw new Error(`Microphone error: ${error.name}. ${error.message}`);
     }
   };
 
   const startRecording = async () => {
+    console.log('📢 startRecording called');
     setError(null);
     setResult(null);
     setTranscript('');
     setRecordingTime(0);
     setShowWarning(false);
+    retryCountRef.current = 0; // Reset retry counter
+
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const shouldSkipMicPreflight = !window.isSecureContext && !isLocalhost;
+    console.log('isLocalhost:', isLocalhost, 'shouldSkipMicPreflight:', shouldSkipMicPreflight);
 
     try {
-      await ensureMicrophonePermission();
+      if (!shouldSkipMicPreflight) {
+        console.log('🔐 Requesting microphone permission...');
+        await ensureMicrophonePermission();
+      } else {
+        console.warn('Skipping getUserMedia preflight on non-secure origin; attempting SpeechRecognition directly.');
+      }
+      console.log('✓ Permissions OK, starting speech recognition');
       setIsRecording(true);
       recognitionRef.current?.start();
     } catch (e) {
@@ -193,10 +251,8 @@ function VoiceRecorder({ mode }) {
     }
   };
 
-  const handleStopAndSubmit = async () => {
-    stopRecording();
-
-    if (!transcript.trim()) {
+  const submitLog = async (inputText) => {
+    if (!inputText.trim()) {
       setError('No speech detected. Please try again.');
       return;
     }
@@ -206,12 +262,11 @@ function VoiceRecorder({ mode }) {
 
     try {
       if (mode === 'quick') {
-        const response = await quickLog(transcript);
+        const response = await quickLog(inputText);
         setResult(response);
-        triggerRefresh(); // Trigger refresh for dashboard/history
+        triggerRefresh();
       } else {
-        // Guided mode
-        const response = await guidedLogStart(transcript);
+        const response = await guidedLogStart(inputText);
         setGuidedState(response);
         setCurrentQuestion(0);
         setAnswers([]);
@@ -222,6 +277,11 @@ function VoiceRecorder({ mode }) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleStopAndSubmit = async () => {
+    stopRecording();
+    await submitLog(transcript);
   };
 
   const handleTryAgain = () => {
@@ -238,8 +298,26 @@ function VoiceRecorder({ mode }) {
   const handleTypeInstead = () => {
     setError(null);
     setResult(null);
-    // TODO: Show manual form
-    alert('Manual form not implemented yet');
+    setIsTypeMode(true);
+    setManualText(transcript);
+  };
+
+  const handleSubmitTyped = async () => {
+    await submitLog(manualText);
+  };
+
+  const handleCancelTyped = () => {
+    setIsTypeMode(false);
+    setManualText('');
+  };
+
+  const switchInputMethod = (method) => {
+    setInputMethod(method);
+    setError(null);
+    setTranscript('');
+    setManualText('');
+    setIsRecording(false);
+    setIsTypeMode(false);
   };
 
   const handleGuidedAnswer = async (answer) => {
@@ -267,6 +345,8 @@ function VoiceRecorder({ mode }) {
 
   const handleReset = () => {
     setTranscript('');
+    setManualText('');
+    setIsTypeMode(false);
     setResult(null);
     setError(null);
     setGuidedState(null);
@@ -329,15 +409,34 @@ function VoiceRecorder({ mode }) {
 
   return (
     <div className="voice-recorder">
-      {error && (
-        <div className="error-message">
-          <p>{error}</p>
-          <div className="error-actions">
-            <button onClick={handleTryAgain}>Try Again</button>
-            <button onClick={handleTypeInstead}>Type Instead</button>
-          </div>
-        </div>
-      )}
+      {/* Input Method Toggle */}
+      <div className="input-method-toggle">
+        <button 
+          className={inputMethod === 'voice' ? 'active' : ''}
+          onClick={() => switchInputMethod('voice')}
+        >
+          🎤 Voice
+        </button>
+        <button 
+          className={inputMethod === 'type' ? 'active' : ''}
+          onClick={() => switchInputMethod('type')}
+        >
+          ⌨️ Type
+        </button>
+      </div>
+
+      {/* Voice Mode */}
+      {inputMethod === 'voice' && (
+        <>
+          {error && (
+            <div className="error-message">
+              <p>{error}</p>
+              <div className="error-actions">
+                <button onClick={handleTryAgain}>Try Again</button>
+                <button onClick={() => switchInputMethod('type')}>Switch to Type</button>
+              </div>
+            </div>
+          )}
 
       {!isRecording && !isLoading && !error && (
         <div className="recorder-idle">
@@ -371,8 +470,28 @@ function VoiceRecorder({ mode }) {
         </div>
       )}
 
+      {isTypeMode && !isLoading && (
+        <div className="typed-input">
+          <strong>Type your symptoms</strong>
+          <textarea
+            value={manualText}
+            onChange={(e) => setManualText(e.target.value)}
+            placeholder="Example: I’ve had a headache since lunch, severity 7 out of 10, maybe from too much coffee"
+            rows={5}
+          />
+          <div className="typed-actions">
+            <button className="submit-button" onClick={handleSubmitTyped}>
+              Submit Typed Log
+            </button>
+            <button className="cancel-button" onClick={handleCancelTyped}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="controls">
-        {!isRecording && !isLoading && (
+        {!isRecording && !isLoading && !isTypeMode && (
           <button 
             className="mic-button" 
             onClick={startRecording}
@@ -391,13 +510,66 @@ function VoiceRecorder({ mode }) {
         )}
       </div>
 
-      {transcript && !isRecording && !isLoading && !error && (
+      {transcript && !isRecording && !isLoading && !error && !isTypeMode && (
         <div className="transcript-preview">
           <strong>Your recording:</strong>
           <p>{transcript}</p>
           <button className="submit-button" onClick={handleStopAndSubmit}>
             Submit
           </button>
+        </div>
+      )}
+        </>
+      )}
+
+      {/* Type Mode */}
+      {inputMethod === 'type' && (
+        <div className="type-mode-container">
+          {error && (
+            <div className="error-message">
+              <p>{error}</p>
+              <div className="error-actions">
+                <button onClick={() => setError(null)}>Dismiss</button>
+              </div>
+            </div>
+          )}
+
+          {!isLoading && !error && (
+            <div className="type-instructions">
+              <p>
+                {mode === 'quick' 
+                  ? 'Type your symptoms. Be as detailed as you\'d like.'
+                  : 'Type your symptoms. We\'ll ask follow-up questions after.'}
+              </p>
+            </div>
+          )}
+
+          {isLoading && (
+            <div className="loading">
+              <div className="spinner"></div>
+              <p>Processing your log...</p>
+            </div>
+          )}
+
+          {!isLoading && (
+            <textarea
+              className="text-input-area"
+              value={manualText}
+              onChange={(e) => setManualText(e.target.value)}
+              placeholder="Example: I've had a headache since lunch, severity 7 out of 10, maybe from too much coffee"
+              rows={6}
+            />
+          )}
+
+          <div className="type-actions">
+            <button 
+              className="submit-button" 
+              onClick={handleSubmitTyped}
+              disabled={!manualText.trim() || isLoading}
+            >
+              Submit
+            </button>
+          </div>
         </div>
       )}
     </div>

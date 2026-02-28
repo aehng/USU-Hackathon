@@ -11,6 +11,10 @@ from models.models import Entry, User
 app = FastAPI(title="VoiceHealth Tracker API")
 
 # Enable CORS for frontend
+# Note: when running behind Cloudflare tunnels, the frontend will talk to
+# `https://flairup.dpdns.org` and the LLM adapter is reachable at
+# `https://llm.flairup.dpdns.org`.  These are the defaults for
+# LLM_SERVER_URL and normal API traffic.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # In production, specify exact origins
@@ -41,7 +45,9 @@ async def quick_log(request: Request):
     user_id = body.get("user_id")
     transcript = body.get("transcript")
 
-    llm_base = os.getenv("LLM_SERVER_URL", "http://llm.flairup.dpdns.org")
+    # default location for the LLM adapter via Cloudflare tunnel
+    # use HTTPS so TLS is terminated by the tunnel
+    llm_base = os.getenv("LLM_SERVER_URL", "https://llm.flairup.dpdns.org")
     llm_endpoint = f"{llm_base.rstrip('/')}/generate"
     try:
         resp = requests.post(llm_endpoint, json={"input": body}, timeout=15)
