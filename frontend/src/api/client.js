@@ -8,14 +8,35 @@ export const DEMO_USER_ID = 'demo-user-001';
 async function fetchJson(url, options = {}) {
   let response;
 
+  // Add 2-minute timeout for slow LLM processing
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes
+
   try {
-    response = await fetch(url, options);
+    response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
   } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timed out after 2 minutes. The LLM might be processing - please wait or try a smaller model.`);
+    }
     throw new Error(`Network error reaching ${url}. Verify backend is running on ${API_BASE_URL}.`);
   }
 
   if (!response.ok) {
-    throw new Error(`Request failed (${response.status}) for ${url}`);
+    let errorDetail = `Request failed (${response.status})`;
+    try {
+      const errorJson = await response.json();
+      if (errorJson.detail) {
+        errorDetail = errorJson.detail;
+      }
+    } catch (e) {
+      // If response isn't JSON, use default message
+    }
+    throw new Error(errorDetail);
   }
 
   return response.json();
@@ -23,14 +44,22 @@ async function fetchJson(url, options = {}) {
 
 // Quick log - single voice input, immediate extraction
 export async function quickLog(transcript) {
-  return fetchJson(`${API_BASE_URL}/api/log/quick`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      user_id: DEMO_USER_ID,
-      transcript: transcript
-    })
+  console.log('🚀 quickLog called with transcript:', transcript);
+  console.log('📍 API_BASE_URL:', API_BASE_URL);
+  const url = `${API_BASE_URL}/api/log/quick`;
+  console.log('🌐 Making request to:', url);
+  
+  const response = await fetchJson(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+          user_id: DEMO_USER_ID,
+          transcript: transcript
+        })
   });
+  
+  console.log('✅ quickLog response:', response);
+  return response;
 }
 
 // Guided log - start with voice input, get follow-up questions

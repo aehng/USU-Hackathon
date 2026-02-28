@@ -252,6 +252,9 @@ function VoiceRecorder({ mode }) {
   };
 
   const submitLog = async (inputText) => {
+    console.log('📝 submitLog called with text:', inputText);
+    console.log('📋 Current mode:', mode);
+    
     if (!inputText.trim()) {
       setError('No speech detected. Please try again.');
       return;
@@ -262,7 +265,9 @@ function VoiceRecorder({ mode }) {
 
     try {
       if (mode === 'quick') {
+        console.log('⚡ Calling quickLog...');
         const response = await quickLog(inputText);
+        console.log('✨ Got response:', response);
         setResult(response);
         triggerRefresh();
       } else {
@@ -466,7 +471,7 @@ function VoiceRecorder({ mode }) {
       {isLoading && (
         <div className="loading">
           <div className="spinner"></div>
-          <p>Processing your log...</p>
+          <p>Analyzing with AI... (this may take 30-60 seconds)</p>
         </div>
       )}
 
