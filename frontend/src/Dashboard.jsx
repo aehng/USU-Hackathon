@@ -31,15 +31,12 @@ export default function Dashboard() {
         setStats(MOCK_STATS);
       } else {
         try {
-          const base = API_BASE_URL;
           const [insightsRes, statsRes] = await Promise.all([
-            fetch(`${base}/api/insights/${DEMO_USER_ID}`),
-            fetch(`${base}/api/stats/${DEMO_USER_ID}`),
+            fetch(`${API_BASE_URL}/api/insights/${DEMO_USER_ID}`).then(r => r.json()),
+            fetch(`${API_BASE_URL}/api/stats/${DEMO_USER_ID}`).then(r => r.json()),
           ]);
-          const insightsData = await insightsRes.json();
-          const statsData = await statsRes.json();
-          setInsights(insightsData);
-          setStats(statsData);
+          setInsights(insightsRes);
+          setStats(statsRes);
         } catch (err) {
           console.error(err);
           setInsights(NOT_ENOUGH_DATA_INSIGHTS);

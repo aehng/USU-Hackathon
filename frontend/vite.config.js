@@ -7,6 +7,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     allowedHosts: ['flairup.dpdns.org'],
+    // ⚠️ DO NOT CHANGE PORT 5173 UNDER ANY CIRCUMSTANCE - Required for production VM routing
     port: 5173,
     strictPort: true,
   }
