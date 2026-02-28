@@ -28,11 +28,11 @@ class SymptomExtraction(BaseModel):
 
 LEMONADE_BASE = os.getenv("LEMONADE_BASE_URL", "http://localhost:8080/v1")
 # Use a model that exists in Lemonade. Common options:
-# - AMD-OLMo-1B-SFT-DPO-Hybrid (fast, small)
+# - AMD-OLMo-1B-SFT-DPO-Hybrid (fast, small - RECOMMENDED for demos)
 # - CodeLlama-7b-Instruct-hf-Hybrid (medium, code-focused)
-# - Qwen3-8B-Hybrid (larger, more capable)
+# - Qwen3-8B-Hybrid (larger, more capable but slower)
 # Run: GET http://localhost:8080/api/v1/models?show_all=true to see all models
-MODEL = os.getenv("LLM_MODEL", "Qwen3-8B-Hybrid")
+MODEL = os.getenv("LLM_MODEL", "AMD-OLMo-1B-SFT-DPO-Hybrid")
 API_KEY = os.getenv("OPENAI_API_KEY", "not-needed-for-local")
 
 # Initialize OpenAI client pointing to local Lemonade server
