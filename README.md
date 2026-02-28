@@ -80,8 +80,8 @@ Update this once the VM is set up Friday:
 To avoid Docker collisions, the team is strictly using the following ports on the VM:
 | Port | Service | Owner | Description |
 |---|---|---|---|
-| `5173` | Frontend | Eli/Max | React Vite Development Server |
-| `5432` | Database | Clayton | PostgreSQL Connection |
+| `3000` | Frontend | Eli/Max | React Vite Development Server |
+| `5433` | Database | Clayton | PostgreSQL Connection |
 | `8000` | Tunnel | Noah | Reserved for Cloudflare LLM Tunnel |
 | `8001` | Backend API | Noah/Clayton | FastAPI Web Server |
 
