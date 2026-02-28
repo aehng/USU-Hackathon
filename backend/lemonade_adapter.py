@@ -77,9 +77,9 @@ async def generate(request: Request):
 
     # System prompt for symptom extraction with explicit JSON formatting
     system_prompt = (
-        "You are a medical symptom extraction assistant. Extract health information "
+        "You are a medical symptom extraction assistant. Extract health information, and potential triggers"
         "from the user's description. Be conservative - only extract information explicitly stated. "
-        "Return ONLY valid JSON matching this exact format, with no markdown formatting:\n"
+        "Return ONLY valid JSON matching this exact format, with no markdown formatting: \n"
         "{\n"
         '  "symptoms": ["symptom1", "symptom2"],\n'
         '  "severity": 5,\n'
@@ -102,7 +102,7 @@ async def generate(request: Request):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content}
             ],
-            temperature=0.0,
+            temperature=0.2,
         )
         
         # Extract the text response
