@@ -152,15 +152,29 @@ async def transcribe_audio(audio: UploadFile = File(...)):
     llm_endpoint = f"{llm_base.rstrip('/')}/transcribe"
     
     try:
+        # Read the audio file content
+        audio_content = await audio.read()
+        logger.info(f"Received audio file: {audio.filename}, size: {len(audio_content)} bytes")
+        
         # Forward the audio file to the LLM adapter
-        files = {"audio": (audio.filename, audio.file, audio.content_type)}
-        resp = requests.post(llm_endpoint, files=files, timeout=30)
+        files = {"audio": (audio.filename or "recording.webm", audio_content, audio.content_type or "audio/webm")}
+        logger.info(f"Forwarding to LLM endpoint: {llm_endpoint}")
+        resp = requests.post(llm_endpoint, files=files, timeout=60)
         resp.raise_for_status()
-        return resp.json()
+        
+        result = resp.json()
+        logger.info(f"Transcription successful, text length: {len(result.get('text', ''))}")
+        return result
     except requests.RequestException as exc:
-        raise HTTPException(status_code=502, detail=f"Transcription request failed: {exc}")
-    except ValueError:
+        logger.error(f"Transcription request failed: {exc}")
+        raise HTTPException(status_code=502, detail=f"Transcription request failed: {str(exc)}")
+    except ValueError as exc:
+        logger.error(f"Invalid JSON response from transcription service: {exc}")
         raise HTTPException(status_code=502, detail="Transcription service returned non-JSON response")
+    except Exception as exc:
+        logger.error(f"Unexpected transcription error: {exc}")
+        raise HTTPException(status_code=500, detail=f"Transcription failed: {str(exc)}")
+
 
 
 @app.post("/api/log/quick")
