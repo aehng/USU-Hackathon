@@ -25,7 +25,7 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"status": "ok", "message": "VoiceHealth Tracker API - Placeholder"}
+    return {"status": "ok", "message": "VoiceHealth Tracker API"}
 
 @app.get("/health")
 def health_check():
