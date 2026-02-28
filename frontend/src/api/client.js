@@ -23,14 +23,22 @@ async function fetchJson(url, options = {}) {
 
 // Quick log - single voice input, immediate extraction
 export async function quickLog(transcript) {
-  return fetchJson(`${API_BASE_URL}/api/log/quick`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      user_id: DEMO_USER_ID,
-      transcript: transcript
-    })
+  console.log('🚀 quickLog called with transcript:', transcript);
+  console.log('📍 API_BASE_URL:', API_BASE_URL);
+  const url = `${API_BASE_URL}/api/log/quick`;
+  console.log('🌐 Making request to:', url);
+  
+  const response = await fetchJson(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+          user_id: DEMO_USER_ID,
+          transcript: transcript
+        })
   });
+  
+  console.log('✅ quickLog response:', response);
+  return response;
 }
 
 // Guided log - start with voice input, get follow-up questions
