@@ -138,7 +138,10 @@ export default function Dashboard() {
           <nav className="inline-flex rounded-full border border-slate-200 bg-white p-1 text-xs font-medium shadow-sm">
             <button
               type="button"
-              onClick={() => setActiveTab("main")}
+              onClick={() => {
+                setActiveTab("main");
+                refreshDashboardData();
+              }}
               className={`px-3 py-1.5 rounded-full transition ${
                 activeTab === "main" ? "bg-slate-900 text-white shadow-sm" : "text-slate-700"
               }`}
