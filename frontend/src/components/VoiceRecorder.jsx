@@ -235,7 +235,7 @@ function VoiceRecorder({ mode }) {
     setIsLoading(true);
     setError(null);
 
-    try:
+    try {
       if (mode === 'quick') {
         const response = await quickLog(transcript);
         setResult(response);
