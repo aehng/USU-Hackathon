@@ -1,112 +1,169 @@
 /**
  * Mock dashboard data for VoiceHealth Tracker.
- * Shapes match Recharts expectations and API contract.
+ * Demo data is derived from DEMO_LOG_ENTRIES (voice-health logs).
  */
+
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+const TIME_CONTEXT_TO_PERIOD = {
+  Morning: "morning",
+  "All day": "afternoon",
+  Evening: "evening",
+  Night: "night",
+  Afternoon: "afternoon",
+  "Post-gym": "afternoon",
+  "Post-dinner": "evening",
+  Now: "afternoon",
+};
+
+/** Raw demo log entries (voice health). */
+export const DEMO_LOG_ENTRIES = [
+  { date: "2026-01-30", symptoms: ["Hoarseness"], severity: 2, potential_triggers: ["Cold Weather"], mood: "Good", body_location: ["Throat"], time_context: "Morning", notes: "Slight raspiness after waking up." },
+  { date: "2026-01-31", symptoms: ["Hoarseness", "Dryness"], severity: 3, potential_triggers: ["Coffee"], mood: "Fine", body_location: ["Throat"], time_context: "All day", notes: "Need to drink more water." },
+  { date: "2026-02-01", symptoms: ["Sore Throat"], severity: 4, potential_triggers: ["Dust"], mood: "Tired", body_location: ["Throat"], time_context: "Evening", notes: "Felt a scratchy sensation during work." },
+  { date: "2026-02-02", symptoms: ["Sore Throat", "Cough"], severity: 5, potential_triggers: ["Pollutants"], mood: "Anxious", body_location: ["Throat", "Chest"], time_context: "Night", notes: "Coughing started late." },
+  { date: "2026-02-03", symptoms: ["Cough", "Breathiness"], severity: 6, potential_triggers: ["Exercise"], mood: "Frustrated", body_location: ["Chest"], time_context: "Post-gym", notes: "Struggled to finish my sentences." },
+  { date: "2026-02-04", symptoms: ["Loss of Voice"], severity: 8, potential_triggers: ["Public Speaking"], mood: "Stressed", body_location: ["Larynx"], time_context: "Afternoon", notes: "Completely lost my voice during the meeting." },
+  { date: "2026-02-05", symptoms: ["Pain", "Hoarseness"], severity: 9, potential_triggers: ["Lack of Rest"], mood: "Low", body_location: ["Throat"], time_context: "Morning", notes: "Extremely painful to swallow." },
+  { date: "2026-02-06", symptoms: ["Pain", "Dryness"], severity: 7, potential_triggers: ["Dairy"], mood: "Better", body_location: ["Throat"], time_context: "All day", notes: "Resting my voice today." },
+  { date: "2026-02-07", symptoms: ["Hoarseness"], severity: 5, potential_triggers: null, mood: "Optimistic", body_location: ["Throat"], time_context: "Afternoon", notes: "Voice is slowly returning." },
+  { date: "2026-02-08", symptoms: ["Dryness"], severity: 3, potential_triggers: ["Air Conditioning"], mood: "Good", body_location: ["Throat"], time_context: "Night", notes: "Using a humidifier now." },
+  { date: "2026-02-09", symptoms: ["Hoarseness"], severity: 4, potential_triggers: ["Stress"], mood: "Busy", body_location: ["Throat"], time_context: "Evening", notes: "Stress-induced tension in neck." },
+  { date: "2026-02-10", symptoms: ["Sore Throat", "Pain"], severity: 6, potential_triggers: ["Spicy Food"], mood: "Irritated", body_location: ["Throat", "Esophagus"], time_context: "Post-dinner", notes: "Acid reflux making it worse." },
+  { date: "2026-02-11", symptoms: ["Cough", "Hoarseness"], severity: 8, potential_triggers: ["Allergens"], mood: "Exhausted", body_location: ["Chest", "Throat"], time_context: "Morning", notes: "Heavy coughing fits." },
+  { date: "2026-02-12", symptoms: ["Loss of Voice", "Pain"], severity: 10, potential_triggers: ["Shouting"], mood: "Upset", body_location: ["Larynx"], time_context: "Night", notes: "Total vocal failure after the game." },
+  { date: "2026-02-13", symptoms: ["Pain"], severity: 7, potential_triggers: null, mood: "Quiet", body_location: ["Throat"], time_context: "All day", notes: "Complete vocal rest ordered." },
+  { date: "2026-02-14", symptoms: ["Dryness"], severity: 5, potential_triggers: ["Alcohol"], mood: "Happy", body_location: ["Throat"], time_context: "Evening", notes: "Valentine's dinner, kept it quiet." },
+  { date: "2026-02-15", symptoms: ["Hoarseness"], severity: 4, potential_triggers: null, mood: "Relaxed", body_location: ["Throat"], time_context: "Morning", notes: "Feeling much better today." },
+  { date: "2026-02-16", symptoms: ["Hoarseness"], severity: 3, potential_triggers: ["Talking on phone"], mood: "Productive", body_location: ["Throat"], time_context: "Afternoon", notes: "Managed a 20-min call." },
+  { date: "2026-02-17", symptoms: ["Dryness"], severity: 2, potential_triggers: ["Dehydration"], mood: "Focus", body_location: ["Throat"], time_context: "All day", notes: "Drinking 3L of water today." },
+  { date: "2026-02-18", symptoms: null, severity: 1, potential_triggers: null, mood: "Great", body_location: null, time_context: "Morning", notes: "Almost back to normal." },
+  { date: "2026-02-19", symptoms: ["Hoarseness"], severity: 2, potential_triggers: ["Singing"], mood: "Joyful", body_location: ["Throat"], time_context: "Evening", notes: "Sang a bit in the car, slight strain." },
+  { date: "2026-02-20", symptoms: ["Sore Throat"], severity: 3, potential_triggers: ["Cold Air"], mood: "Fine", body_location: ["Throat"], time_context: "Morning", notes: "Walked to work in the cold." },
+  { date: "2026-02-21", symptoms: ["Cough"], severity: 4, potential_triggers: ["Dust"], mood: "Annoyed", body_location: ["Chest"], time_context: "Afternoon", notes: "Cleaning the attic triggered a cough." },
+  { date: "2026-02-22", symptoms: ["Hoarseness", "Pain"], severity: 5, potential_triggers: ["Passive Smoke"], mood: "Tired", body_location: ["Throat"], time_context: "Night", notes: "At a bar with smoke, throat hurt." },
+  { date: "2026-02-23", symptoms: ["Hoarseness"], severity: 4, potential_triggers: null, mood: "Calm", body_location: ["Throat"], time_context: "Morning", notes: "Resting today." },
+  { date: "2026-02-24", symptoms: ["Dryness"], severity: 2, potential_triggers: ["Coffee"], mood: "Good", body_location: ["Throat"], time_context: "Afternoon", notes: "Switched to herbal tea." },
+  { date: "2026-02-25", symptoms: ["Breathiness"], severity: 3, potential_triggers: ["Anxiety"], mood: "Nervous", body_location: ["Chest"], time_context: "Evening", notes: "Presentation prep making me breathless." },
+  { date: "2026-02-26", symptoms: ["Hoarseness"], severity: 2, potential_triggers: null, mood: "Confident", body_location: ["Throat"], time_context: "All day", notes: "Voice is stable." },
+  { date: "2026-02-27", symptoms: null, severity: 0, potential_triggers: null, mood: "Excellent", body_location: null, time_context: "Morning", notes: "No symptoms at all!" },
+  { date: "2026-02-28", symptoms: null, severity: 0, potential_triggers: null, mood: "Hype", body_location: null, time_context: "Now", notes: "Hackathon demo day! Voice is 100%." },
+];
+
+function getDayOfWeek(dateStr) {
+  const d = new Date(dateStr + "T12:00:00");
+  return DAYS[d.getDay()];
+}
+
+function getTimeOfDay(entry) {
+  return TIME_CONTEXT_TO_PERIOD[entry.time_context] || "afternoon";
+}
+
+function deriveStatsFromDemoEntries(entries) {
+  const severity_trends = entries
+    .slice()
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((e) => ({ date: e.date, severity: e.severity }));
+
+  const triggerCounts = {};
+  const symptomCounts = {};
+  const heatmapKey = (symptom, day, time) => `${symptom}|${day}|${time}`;
+  const heatmap = {};
+  const triggerSymptomPairs = {};
+
+  entries.forEach((e) => {
+    (e.potential_triggers || []).forEach((t) => {
+      triggerCounts[t] = (triggerCounts[t] || 0) + 1;
+      (e.symptoms || []).forEach((s) => {
+        const key = `${t}|${s}`;
+        triggerSymptomPairs[key] = (triggerSymptomPairs[key] || 0) + 1;
+      });
+    });
+    (e.symptoms || []).forEach((s) => {
+      symptomCounts[s] = (symptomCounts[s] || 0) + 1;
+      const day = getDayOfWeek(e.date);
+      const time = getTimeOfDay(e);
+      const k = heatmapKey(s, day, time);
+      heatmap[k] = (heatmap[k] || 0) + 1;
+    });
+  });
+
+  const trigger_correlations = Object.entries(triggerCounts)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+
+  const symptom_frequency = Object.entries(symptomCounts)
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value);
+
+  const symptom_temporal_heatmap = [];
+  for (const [key, value] of Object.entries(heatmap)) {
+    const [symptom, day, time_of_day] = key.split("|");
+    symptom_temporal_heatmap.push({ symptom, day, time_of_day, value });
+  }
+
+  const activity_symptom_correlations = [];
+  for (const [key, count] of Object.entries(triggerSymptomPairs)) {
+    const [activity, symptom] = key.split("|");
+    const triggerTotal = triggerCounts[activity] || 1;
+    activity_symptom_correlations.push({
+      activity,
+      symptom,
+      confidence: Math.min(1, Math.round((count / triggerTotal) * 100) / 100),
+      sample_size: count,
+    });
+  }
+  activity_symptom_correlations.sort((a, b) => b.confidence - a.confidence);
+
+  return {
+    total_entries: entries.length,
+    date_range_days: entries.length,
+    message: null,
+    severity_trends,
+    trigger_correlations,
+    symptom_frequency,
+    symptom_temporal_heatmap,
+    activity_symptom_correlations,
+  };
+}
+
+export const MOCK_STATS = deriveStatsFromDemoEntries(DEMO_LOG_ENTRIES);
 
 export const MOCK_INSIGHTS = {
   insights: [
     {
       id: "1",
-      title: "Caffeine & headaches",
-      body: "Your migraines are 72% more likely the day after logging caffeine — based on 14 instances in your history.",
+      title: "Coffee & dryness",
+      body: "Dryness and hoarseness show up often when you log Coffee as a trigger. Switching to herbal tea or more water on voice-heavy days may help.",
       icon: "☕",
     },
     {
       id: "2",
-      title: "Sleep and fatigue",
-      body: "Poor sleep logged the night before correlates with next-morning fatigue in about 80% of entries.",
-      icon: "😴",
+      title: "Cold air and throat",
+      body: "Cold Weather and Cold Air correlate with Sore Throat and Hoarseness in your logs. Consider a scarf or avoiding long cold exposure.",
+      icon: "🧣",
     },
     {
       id: "3",
-      title: "Stress and stomach",
-      body: "Stress appears before stomach discomfort same-day in roughly 65% of your logs.",
-      icon: "😤",
+      title: "Stress and voice strain",
+      body: "Stress and Public Speaking appear before higher severity and Loss of Voice in your history. Pacing and rest after big talks may reduce flare-ups.",
+      icon: "🎤",
     },
   ],
   prediction: {
-    title: "Heads up",
-    body: "Based on your recent logs (caffeine yesterday, low sleep), you may be at higher risk for a headache today.",
-    riskLevel: "medium", // "low" | "medium" | "high"
+    title: "You're in a good place",
+    body: "Your last few entries show low severity and stable voice. Keep up hydration and vocal rest when you feel the first signs of strain.",
+    riskLevel: "low",
   },
-  // Direct LLM-generated advice / diagnosis-style guidance
   advice: {
     title: "What your pattern suggests",
     body:
-      "Your logs suggest a strong link between caffeine and next-day migraines, amplified when you also report poor sleep. " +
-      "Try limiting caffeine after 2pm and improving sleep hygiene for two weeks, then check if your average severity drops.",
+      "Your logs point to dryness and hoarseness often linked to coffee, cold air, and stress. " +
+      "Staying hydrated, using a humidifier, and resting your voice after long talking or singing may help keep symptoms from spiking.",
     disclaimer:
       "This is not a medical diagnosis. If symptoms worsen, change, or worry you, talk to a licensed clinician.",
   },
   message: null,
-};
-
-export const MOCK_STATS = {
-  total_entries: 42,
-  date_range_days: 30,
-  message: null,
-  // Severity trend — LineChart: { date, severity }
-  severity_trends: [
-    { date: "2026-02-21", severity: 5 },
-    { date: "2026-02-22", severity: 6 },
-    { date: "2026-02-23", severity: 4 },
-    { date: "2026-02-24", severity: 7 },
-    { date: "2026-02-25", severity: 6 },
-    { date: "2026-02-26", severity: 5 },
-    { date: "2026-02-27", severity: 6 },
-  ],
-  // Top triggers — BarChart: { name, value } (horizontal: Y=name, X=value)
-  trigger_correlations: [
-    { name: "Caffeine", value: 14 },
-    { name: "Poor sleep", value: 12 },
-    { name: "Stress", value: 10 },
-    { name: "Alcohol", value: 8 },
-    { name: "Skipped meals", value: 5 },
-  ],
-  // Symptom breakdown — Pie/Donut: { name, value }
-  symptom_frequency: [
-    { name: "Headache", value: 18 },
-    { name: "Fatigue", value: 14 },
-    { name: "Stomach ache", value: 9 },
-    { name: "Joint pain", value: 6 },
-    { name: "Other", value: 4 },
-  ],
-  // Heatmap: day (x) × time of day (y), filter by symptom. One row per (symptom, day, time_of_day).
-  symptom_temporal_heatmap: [
-    { symptom: "Headache", day: "Monday", time_of_day: "morning", value: 2 },
-    { symptom: "Headache", day: "Monday", time_of_day: "afternoon", value: 5 },
-    { symptom: "Headache", day: "Monday", time_of_day: "evening", value: 3 },
-    { symptom: "Headache", day: "Tuesday", time_of_day: "morning", value: 4 },
-    { symptom: "Headache", day: "Tuesday", time_of_day: "afternoon", value: 2 },
-    { symptom: "Headache", day: "Wednesday", time_of_day: "morning", value: 6 },
-    { symptom: "Headache", day: "Wednesday", time_of_day: "evening", value: 4 },
-    { symptom: "Headache", day: "Thursday", time_of_day: "afternoon", value: 5 },
-    { symptom: "Headache", day: "Friday", time_of_day: "evening", value: 7 },
-    { symptom: "Headache", day: "Saturday", time_of_day: "morning", value: 3 },
-    { symptom: "Headache", day: "Sunday", time_of_day: "afternoon", value: 2 },
-    { symptom: "Fatigue", day: "Monday", time_of_day: "morning", value: 8 },
-    { symptom: "Fatigue", day: "Monday", time_of_day: "afternoon", value: 4 },
-    { symptom: "Fatigue", day: "Tuesday", time_of_day: "morning", value: 6 },
-    { symptom: "Fatigue", day: "Wednesday", time_of_day: "morning", value: 7 },
-    { symptom: "Fatigue", day: "Thursday", time_of_day: "morning", value: 5 },
-    { symptom: "Fatigue", day: "Friday", time_of_day: "evening", value: 3 },
-    { symptom: "Stomach ache", day: "Monday", time_of_day: "afternoon", value: 4 },
-    { symptom: "Stomach ache", day: "Tuesday", time_of_day: "evening", value: 3 },
-    { symptom: "Stomach ache", day: "Wednesday", time_of_day: "afternoon", value: 5 },
-    { symptom: "Stomach ache", day: "Thursday", time_of_day: "morning", value: 2 },
-    { symptom: "Joint pain", day: "Monday", time_of_day: "evening", value: 2 },
-    { symptom: "Joint pain", day: "Saturday", time_of_day: "afternoon", value: 3 },
-  ],
-  // Activity × symptom correlation (used for confidence table)
-  activity_symptom_correlations: [
-    { activity: "Caffeine", symptom: "Headache", confidence: 0.85, sample_size: 14 },
-    { activity: "Caffeine", symptom: "Fatigue", confidence: 0.42, sample_size: 10 },
-    { activity: "Poor sleep", symptom: "Fatigue", confidence: 0.88, sample_size: 18 },
-    { activity: "Poor sleep", symptom: "Headache", confidence: 0.61, sample_size: 15 },
-    { activity: "Stressful day", symptom: "Stomach ache", confidence: 0.69, sample_size: 11 },
-    { activity: "Alcohol", symptom: "Headache", confidence: 0.9, sample_size: 9 },
-    { activity: "Skipped meals", symptom: "Stomach ache", confidence: 0.74, sample_size: 8 },
-  ],
 };
 
 /** "Not enough data" response shape for testing empty state */
