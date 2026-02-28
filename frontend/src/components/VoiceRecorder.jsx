@@ -20,6 +20,7 @@ function VoiceRecorder({ mode }) {
   const recognitionRef = useRef(null);
   const timerRef = useRef(null);
   const activeStreamRef = useRef(null);
+  const retryCountRef = useRef(0);
   const { triggerRefresh } = useContext(RefreshContext);
 
   // Initialize Web Speech API
@@ -57,10 +58,29 @@ function VoiceRecorder({ mode }) {
 
     recognition.onerror = (event) => {
       console.error('Speech recognition error:', event.error);
+      
+      // Retry on network errors up to 3 times
+      if (event.error === 'network' && retryCountRef.current < 3) {
+        retryCountRef.current++;
+        console.log(`Network error, retrying... (${retryCountRef.current}/3)`);
+        setError(`Network issue, retrying... (${retryCountRef.current}/3)`);
+        
+        setTimeout(() => {
+          try {
+            recognitionRef.current?.start();
+          } catch (e) {
+            console.log('Retry failed:', e);
+          }
+        }, 500);
+        return;
+      }
+      
       if (event.error === 'no-speech') {
         setError('No speech detected. Please try again.');
       } else if (event.error === 'not-allowed') {
         setError('Microphone access denied. Please allow microphone access.');
+      } else if (event.error === 'network') {
+        setError('Network error after 3 retries. Please check your internet connection and try again.');
       } else {
         setError(`Recognition error: ${event.error}`);
       }
@@ -172,6 +192,7 @@ function VoiceRecorder({ mode }) {
     setTranscript('');
     setRecordingTime(0);
     setShowWarning(false);
+    retryCountRef.current = 0; // Reset retry counter
 
     try {
       await ensureMicrophonePermission();
