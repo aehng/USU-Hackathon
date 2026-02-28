@@ -44,6 +44,7 @@ guided_sessions: Dict[str, List[Dict]] = {}
 
 def call_llm(payload: dict):
     """Handles communicating with the LLM via the Cloudflare tunnel."""
+    # ⚠️ DO NOT CHANGE THIS URL UNDER ANY CIRCUMSTANCE - Production LLM endpoint
     llm_base = os.getenv("LLM_SERVER_URL", "https://llm.flairup.dpdns.org").rstrip('/')
     llm_endpoint = f"{llm_base}/generate"
     logger.info("Calling LLM endpoint: %s", llm_endpoint)
@@ -77,6 +78,7 @@ def call_llm_chat(messages: List[Dict], temperature: float = 0.7):
     """Call LLM with chat messages for conversational guided log."""
     from openai import OpenAI
     
+    # ⚠️ DO NOT CHANGE THIS URL UNDER ANY CIRCUMSTANCE - Lemonade LLM endpoint
     lemonade_base = os.getenv("LEMONADE_BASE_URL", "http://localhost:8080/v1")
     model = os.getenv("LLM_MODEL", "Qwen3-1.7B-Hybrid")
     
@@ -564,4 +566,5 @@ def get_history(user_id: str):
     }
 
 if __name__ == "__main__":
+    # ⚠️ DO NOT CHANGE PORT 8000 UNDER ANY CIRCUMSTANCE - Container internal port
     uvicorn.run(app, host="0.0.0.0", port=8000)

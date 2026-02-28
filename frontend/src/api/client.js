@@ -1,6 +1,8 @@
 // API client for backend communication
-// NOTE: Ask Eli before changing DEMO_USER_ID or API_BASE_URL (README keeper rule)
+// ⚠️⚠️⚠️ DO NOT CHANGE API_BASE_URL OR PORTS UNDER ANY CIRCUMSTANCE ⚠️⚠️⚠️
+// Required for production routing - ask Eli before any changes
 
+// ⚠️ DO NOT CHANGE - Production API endpoint
 const DEFAULT_API_BASE_URL = 'https://api.flairup.dpdns.org';
 
 function resolveApiBaseUrl() {
@@ -16,6 +18,7 @@ function resolveApiBaseUrl() {
   }
 
   if (hasWindow && !appRunsOnLocalhost) {
+    // ⚠️ DO NOT CHANGE PORT 8001 - Backend port mapping
     return `${protocol}//${hostName}:8001`;
   }
 

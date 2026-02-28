@@ -2,8 +2,10 @@ services:
   backend:
     build: ./backend
     ports:
+      # ⚠️ DO NOT CHANGE PORT 8001 UNDER ANY CIRCUMSTANCE - Required for production VM routing
       - "8001:8000"
     environment:
+      # ⚠️ DO NOT CHANGE THESE URLs/PORTS UNDER ANY CIRCUMSTANCE - Required for production routing
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/healthtracker
       - LEMONADE_BASE_URL=https://llm.flairup.dpdns.org/v1
     volumes:
@@ -12,6 +14,7 @@ services:
   frontend:
     build: ./frontend
     ports:
+      # ⚠️ DO NOT CHANGE PORT 5173 UNDER ANY CIRCUMSTANCE - Required for production VM routing
       - "5173:5173"
     volumes:
       - ./frontend:/app # Same instant-update magic for the frontend
@@ -24,6 +27,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: healthtracker
     ports:
+      # ⚠️ DO NOT CHANGE PORT 5432 UNDER ANY CIRCUMSTANCE - Required for database connections
       - "5432:5432"
     volumes:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
