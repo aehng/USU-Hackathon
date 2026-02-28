@@ -289,9 +289,10 @@ async def guided_log_start(request: Request):
             "Keep questions short, empathetic, and conversational. "
             "Ask about the MOST important missing information first. "
             "After 2-4 questions, when you have enough information, respond with "
-            "EXACTLY this format (including the word COMPLETE): 'COMPLETE:{json_object}' where json_object contains:\n"
-            '{"symptoms": ["list"], "severity": 5, "potential_triggers": ["list"], '
-            '"mood": "string", "body_location": "string", "time_context": "string", "notes": "string"}'
+            "EXACTLY this format starting with the word COMPLETE followed by a colon and valid JSON object:\n"
+            'COMPLETE:{"symptoms": ["headache", "pain"], "severity": 7, "potential_triggers": ["stress", "lack of sleep"], '
+            '"mood": "tired", "body_location": ["head"], "time_context": "evening", "notes": "started after work"}\n\n'
+            "IMPORTANT: Replace the example values with actual data from the conversation. Do not include any extra text."
         )
         
         # Initialize conversation
@@ -307,7 +308,7 @@ async def guided_log_start(request: Request):
         # Check if already complete (enough info in initial transcript)
         if assistant_message.startswith("COMPLETE:"):
             extracted_data = _extract_completion_data(assistant_message)
-            del guided_sessions[session_id]  # Clean up
+            # Keep session for /finalize endpoint - will be deleted there
             return {
                 "session_id": session_id,
                 "question": None,
@@ -358,7 +359,7 @@ async def guided_log_respond(request: Request):
         # Check if complete
         if assistant_message.startswith("COMPLETE:"):
             extracted_data = _extract_completion_data(assistant_message)
-            del guided_sessions[session_id]  # Clean up session
+            # Keep session for /finalize endpoint - will be deleted there
             return {
                 "session_id": session_id,
                 "question": None,
