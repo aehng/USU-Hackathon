@@ -264,6 +264,58 @@ async def chat(request: Request):
         )
 
 
+@app.post("/v1/chat/completions")
+async def openai_chat_completions(request: Request):
+    """OpenAI-compatible chat completions endpoint.
+    
+    Expected input JSON (OpenAI format):
+      {
+        "model": "model-name",
+        "messages": [
+          {"role": "system", "content": "..."},
+          {"role": "user", "content": "..."}
+        ],
+        "temperature": 0.7
+      }
+    
+    Returns OpenAI-compatible response format.
+    """
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid json body")
+    
+    messages = payload.get("messages", [])
+    temperature = payload.get("temperature", 0.7)
+    model = payload.get("model", MODEL)
+    
+    if not messages:
+        raise HTTPException(status_code=400, detail="messages field is required")
+    
+    try:
+        print(f"🔄 OpenAI API: Sending chat request to Lemonade at {LEMONADE_BASE} with model {model}")
+        print(f"📝 Message count: {len(messages)}")
+        
+        response = client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=temperature
+        )
+        
+        # Return the OpenAI response directly (it's already in the right format)
+        print(f"✅ OpenAI API response generated")
+        return response.model_dump()
+        
+    except Exception as exc:
+        print(f"❌ OpenAI API error: {type(exc).__name__}: {str(exc)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=502,
+            detail=f"Chat completions failed: {str(exc)}"
+        )
+
+
 if __name__ == "__main__":
     # Default adapter port is 8000 on the laptop
     port = int(os.getenv("ADAPTER_PORT", "8000"))
