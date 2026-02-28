@@ -1,7 +1,7 @@
 // API client for backend communication
 // NOTE: Ask Eli before changing DEMO_USER_ID or API_BASE_URL (README keeper rule)
 
-const DEFAULT_API_BASE_URL = `https://flairup.dpdns.org`;
+const DEFAULT_API_BASE_URL = `http://${window.location.hostname}:8002`;
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL;
 export const DEMO_USER_ID = 'demo-user-001';
 
