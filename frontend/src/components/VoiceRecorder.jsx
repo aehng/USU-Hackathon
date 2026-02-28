@@ -131,27 +131,38 @@ function VoiceRecorder({ mode }) {
   }, [isRecording]);
 
   const ensureMicrophonePermission = async () => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      throw new Error('Microphone API is unavailable in this browser context. Please use Chrome or Edge.');
-    }
+    // Log what we're detecting for debugging
+    console.log('Checking mic API availability...');
+    console.log('navigator.mediaDevices:', navigator.mediaDevices);
+    console.log('navigator.mediaDevices?.getUserMedia:', navigator.mediaDevices?.getUserMedia);
 
+    // Try to get microphone access directly
+    // Some browsers require this to trigger the permission prompt
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       activeStreamRef.current = stream;
+      console.log('Microphone access granted');
+      return;
     } catch (error) {
+      console.error('Microphone access error:', error.name, error.message);
+      
       if (error.name === 'NotAllowedError') {
         throw new Error('Microphone permission denied. Click the lock icon in the address bar → Site permissions → Microphone → Allow, then try again.');
       }
 
       if (error.name === 'SecurityError') {
-        throw new Error('Microphone access blocked by browser security. Try accessing via https:// or localhost instead of the LAN IP, or check your site permissions.');
+        throw new Error('Microphone access blocked by browser security. Try https:// or check your site permissions in the lock icon.');
       }
 
       if (error.name === 'NotFoundError') {
         throw new Error('No microphone was found on this device.');
       }
 
-      throw new Error('Could not access microphone. Please check browser permissions and try again.');
+      if (error.name === 'NotReadableError' || error.message?.includes('Could not start audio source')) {
+        throw new Error('Microphone is in use by another application. Close other apps using the mic and try again.');
+      }
+
+      throw new Error(`Microphone error: ${error.name}. ${error.message}`);
     }
   };
 
