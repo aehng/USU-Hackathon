@@ -404,10 +404,20 @@ def _extract_completion_data(completion_message: str) -> dict:
         last_brace = json_str.rfind('}')
         if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
             json_str = json_str[first_brace:last_brace+1]
+        else:
+            # No valid JSON braces found
+            logger.error(f"No JSON braces found in: {completion_message}")
+            raise HTTPException(status_code=502, detail="LLM returned incomplete data - please try again")
+        
+        # Check if it's just the placeholder text
+        if json_str.strip() in ['{json_object}', '{...}']:
+            logger.error(f"LLM returned placeholder instead of data: {completion_message}")
+            raise HTTPException(status_code=502, detail="LLM returned placeholder - please try again")
         
         return json.loads(json_str)
     except json.JSONDecodeError as e:
         logger.error(f"Failed to parse completion JSON: {completion_message}")
+        logger.error(f"Extracted string was: {json_str if 'json_str' in locals() else 'N/A'}")
         raise HTTPException(status_code=500, detail="Failed to parse completion data")
 
 
