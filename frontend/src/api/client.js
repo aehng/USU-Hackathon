@@ -96,3 +96,36 @@ export async function getInsights() {
 export async function getHistory() {
   return fetchJson(`${API_BASE_URL}/api/history?user_id=${DEMO_USER_ID}`);
 }
+
+// Transcribe audio using Faster-Whisper
+export async function transcribeAudio(audioBlob) {
+  console.log('🎤 transcribeAudio called with blob size:', audioBlob.size);
+  
+  const formData = new FormData();
+  formData.append('audio', audioBlob, 'recording.webm');
+  
+  const url = `${API_BASE_URL}/api/transcribe`;
+  console.log('🌐 Transcribing at:', url);
+  
+  const response = await fetch(url, {
+    method: 'POST',
+    body: formData,
+  });
+  
+  if (!response.ok) {
+    let errorDetail = `Transcription failed (${response.status})`;
+    try {
+      const errorJson = await response.json();
+      if (errorJson.detail) {
+        errorDetail = errorJson.detail;
+      }
+    } catch (e) {
+      // If response isn't JSON, use default message
+    }
+    throw new Error(errorDetail);
+  }
+  
+  const result = await response.json();
+  console.log('✅ Transcription result:', result);
+  return result;
+}

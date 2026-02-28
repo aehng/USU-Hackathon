@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import { RefreshContext } from '../context/RefreshContext';
-import { quickLog, guidedLogStart, guidedLogFinalize } from '../api/client';
+import { quickLog, guidedLogStart, guidedLogFinalize, transcribeAudio } from '../api/client';
 import './VoiceRecorder.css';
 
 function VoiceRecorder({ mode }) {
@@ -21,105 +21,26 @@ function VoiceRecorder({ mode }) {
   const [answers, setAnswers] = useState([]);
   
   const recognitionRef = useRef(null);
+  const mediaRecorderRef = useRef(null);
+  const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
   const activeStreamRef = useRef(null);
   const retryCountRef = useRef(0);
   const { triggerRefresh } = useContext(RefreshContext);
 
-  // Initialize Web Speech API
+  // Initialize MediaRecorder (no longer using Web Speech API)
   useEffect(() => {
-    console.log('🎤 Initializing Web Speech API');
+    console.log('🎤 VoiceRecorder mounted - using Faster-Whisper via MediaRecorder');
     console.log('Browser:', navigator.userAgent);
-    console.log('Has SpeechRecognition:', 'SpeechRecognition' in window);
-    console.log('Has webkitSpeechRecognition:', 'webkitSpeechRecognition' in window);
+    console.log('Has MediaRecorder:', 'MediaRecorder' in window);
+    console.log('Has mediaDevices:', 'mediaDevices' in navigator);
 
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      setError('Web Speech API is not supported in this browser. Please use Chrome or Edge.');
+    if (!('MediaRecorder' in window)) {
+      setError('Audio recording is not supported in this browser. Please use Chrome, Edge, or Firefox.');
       return;
     }
 
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    recognition.lang = 'en-US';
-    console.log('✓ Web Speech API initialized');
-
-    recognition.onstart = () => {
-      console.log('🔴 Recording started - listening for audio');
-    };
-
-    recognition.onresult = (event) => {
-      console.log('📝 Got result event:', event.results.length, 'results');
-      let interimTranscript = '';
-      let finalTranscript = '';
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcriptPiece = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += transcriptPiece + ' ';
-        } else {
-          interimTranscript += transcriptPiece;
-        }
-      }
-
-      setTranscript(prev => {
-        const updated = prev + finalTranscript;
-        return updated || interimTranscript;
-      });
-    };
-
-    recognition.onerror = (event) => {
-      console.error('❌ Speech recognition error:', event.error);
-      
-      // Retry on network errors up to 3 times
-      if (event.error === 'network' && retryCountRef.current < 3) {
-        retryCountRef.current++;
-        console.log(`Network error, retrying... (${retryCountRef.current}/3)`);
-        setError(`Network issue, retrying... (${retryCountRef.current}/3)`);
-        
-        setTimeout(() => {
-          try {
-            recognitionRef.current?.start();
-          } catch (e) {
-            console.log('Retry failed:', e);
-          }
-        }, 500);
-        return;
-      }
-      
-      if (event.error === 'no-speech') {
-        console.warn('⚠️ No speech detected - microphone may not be working or browser may not support it well');
-        setError('No speech detected. Please try again. (Check mic permissions & browser support)');
-      } else if (event.error === 'not-allowed') {
-        setError('Microphone access denied. Please allow microphone access.');
-      } else if (event.error === 'network') {
-        setError('Network error after 3 retries. Please check your internet connection and try again.');
-      } else {
-        setError(`Recognition error: ${event.error}`);
-      }
-      stopRecording();
-    };
-
-    recognition.onend = () => {
-      // Auto-restart if we're still supposed to be recording
-      // This handles the browser's auto-stop behavior
-      if (isRecording && recordingTime < 30) {
-        try {
-          recognition.start();
-        } catch (e) {
-          console.log('Recognition already stopped');
-        }
-      }
-    };
-
-    recognitionRef.current = recognition;
-
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.stop();
-      }
       if (activeStreamRef.current) {
         activeStreamRef.current.getTracks().forEach(track => track.stop());
         activeStreamRef.current = null;
@@ -205,28 +126,68 @@ function VoiceRecorder({ mode }) {
     console.log('📢 startRecording called');
     setError(null);
     setResult(null);
-    setTranscript('');
+    setTranscript('🎤 Recording... (speak now)');
     setRecordingTime(0);
     setShowWarning(false);
-    retryCountRef.current = 0; // Reset retry counter
-
-    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    const shouldSkipMicPreflight = !window.isSecureContext && !isLocalhost;
-    console.log('isLocalhost:', isLocalhost, 'shouldSkipMicPreflight:', shouldSkipMicPreflight);
+    retryCountRef.current = 0;
+    audioChunksRef.current = [];
 
     try {
-      if (!shouldSkipMicPreflight) {
-        console.log('🔐 Requesting microphone permission...');
-        await ensureMicrophonePermission();
-      } else {
-        console.warn('Skipping getUserMedia preflight on non-secure origin; attempting SpeechRecognition directly.');
-      }
-      console.log('✓ Permissions OK, starting speech recognition');
+      console.log('🔐 Requesting microphone permission...');
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      activeStreamRef.current = stream;
+      console.log('✅ Microphone access granted');
+
+      // Create MediaRecorder
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg';
+      const mediaRecorder = new MediaRecorder(stream, { mimeType });
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = async () => {
+        console.log('🛑 MediaRecorder stopped, processing audio...');
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
+        console.log('📦 Audio blob created:', audioBlob.size, 'bytes');
+
+        setTranscript('🔄 Transcribing audio...');
+        
+        try {
+          const result = await transcribeAudio(audioBlob);
+          const transcribedText = result.text || '';
+          console.log('✅ Transcription received:', transcribedText);
+          setTranscript(transcribedText);
+          
+          // Auto-submit after transcription
+          if (transcribedText.trim()) {
+            await submitLog(transcribedText);
+          } else {
+            setError('No speech detected in the recording. Please try again.');
+          }
+        } catch (err) {
+          console.error('❌ Transcription failed:', err);
+          setError(`Transcription failed: ${err.message}`);
+          setTranscript('');
+        }
+      };
+
+      mediaRecorder.start();
       setIsRecording(true);
-      recognitionRef.current?.start();
-    } catch (e) {
-      console.error('Failed to start recording:', e);
-      setError(e.message || 'Failed to start recording. Please try again.');
+      console.log('🔴 Recording started');
+    } catch (error) {
+      console.error('❌ Failed to start recording:', error);
+      
+      if (error.name === 'NotAllowedError') {
+        setError('Microphone permission denied. Please allow microphone access and try again.');
+      } else if (error.name === 'NotFoundError') {
+        setError('No microphone found. Please connect a microphone and try again.');
+      } else {
+        setError(`Failed to start recording: ${error.message}`);
+      }
       setIsRecording(false);
     }
   };
@@ -235,10 +196,9 @@ function VoiceRecorder({ mode }) {
     setIsRecording(false);
     setShowWarning(false);
     
-    try {
-      recognitionRef.current?.stop();
-    } catch (e) {
-      console.log('Recognition already stopped');
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+      console.log('⏸️ Stopping MediaRecorder...');
     }
     
     if (timerRef.current) {
@@ -285,18 +245,14 @@ function VoiceRecorder({ mode }) {
   };
 
   const handleStopAndSubmit = async () => {
+    // Just stop recording - the MediaRecorder onstop handler will transcribe and submit automatically
     stopRecording();
-    await submitLog(transcript);
   };
 
   const handleTryAgain = () => {
     setError(null);
-
-    if (transcript.trim()) {
-      handleStopAndSubmit();
-      return;
-    }
-
+    setResult(null);
+    setTranscript('');
     startRecording();
   };
 

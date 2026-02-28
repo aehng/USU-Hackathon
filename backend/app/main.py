@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 import os
@@ -30,6 +30,27 @@ def read_root():
 @app.get("/health")
 def health_check():
     return {"status": "healthy"}
+
+@app.post("/api/transcribe")
+async def transcribe_audio(audio: UploadFile = File(...)):
+    """Forward audio file to LLM adapter for transcription using Faster-Whisper.
+    
+    Accepts: audio file (webm, ogg, mp3, wav, etc.)
+    Returns: { "text": "transcribed text here" }
+    """
+    llm_base = os.getenv("LLM_SERVER_URL", "https://llm.flairup.dpdns.org")
+    llm_endpoint = f"{llm_base.rstrip('/')}/transcribe"
+    
+    try:
+        # Forward the audio file to the LLM adapter
+        files = {"audio": (audio.filename, audio.file, audio.content_type)}
+        resp = requests.post(llm_endpoint, files=files, timeout=30)
+        resp.raise_for_status()
+        return resp.json()
+    except requests.RequestException as exc:
+        raise HTTPException(status_code=502, detail=f"Transcription request failed: {exc}")
+    except ValueError:
+        raise HTTPException(status_code=502, detail="Transcription service returned non-JSON response")
 
 # Placeholder routes - Noah will implement these
 @app.post("/api/log/quick")
