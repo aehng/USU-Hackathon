@@ -1,20 +1,21 @@
 .voice-recorder {
-  background: #fff;
+  background: #ffffff;
   border-radius: 16px;
   padding: 32px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
   text-align: center;
   min-height: 400px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  border: 1px solid #e2e8f0;
 }
 
 .input-method-toggle {
   display: flex;
   gap: 12px;
   margin-bottom: 24px;
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 2px solid #e2e8f0;
   padding-bottom: 16px;
 }
 
@@ -23,7 +24,7 @@
   padding: 12px 16px;
   border: none;
   background: transparent;
-  color: #999;
+  color: #94a3b8;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
@@ -34,8 +35,8 @@
 }
 
 .input-method-toggle button.active {
-  color: #667eea;
-  border-bottom-color: #667eea;
+  color: #ea580c;
+  border-bottom-color: #ea580c;
 }
 
 .input-method-toggle button:hover:not(.active) {
@@ -44,7 +45,7 @@
 
 .instructions {
   font-size: 18px;
-  color: #666;
+  color: #64748b;
   margin-bottom: 24px;
 }
 
@@ -86,8 +87,8 @@
 }
 
 .recording-warning {
-  background: #fff3cd;
-  color: #856404;
+  background: #fef3c7;
+  color: #92400e;
   padding: 12px;
   border-radius: 8px;
   font-weight: 500;
@@ -106,16 +107,17 @@
 }
 
 .live-transcript {
-  background: #f5f5f5;
+  background: #f1f5f9;
   padding: 20px;
   border-radius: 12px;
   min-height: 100px;
   font-size: 16px;
   line-height: 1.6;
-  color: #333;
+  color: #1e293b;
   text-align: left;
   max-height: 200px;
   overflow-y: auto;
+  border: 1px solid #e2e8f0;
 }
 
 .controls {
@@ -142,7 +144,7 @@
 
 .mic-button:hover:not(:disabled) {
   transform: scale(1.05);
-  box-shadow: 0 12px 32px rgba(102, 126, 234, 0.5);
+  box-shadow: 0 8px 20px rgba(234, 88, 12, 0.4);
 }
 
 .mic-button:active:not(:disabled) {
@@ -176,34 +178,44 @@
   padding: 14px 32px;
   border: none;
   border-radius: 8px;
-  background: #4CAF50;
+  background: #ea580c;
   color: white;
   font-size: 16px;
   font-weight: 600;
-  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+  box-shadow: 0 2px 6px rgba(234, 88, 12, 0.2);
+  transition: all 0.2s;
 }
 
 .submit-button:hover {
-  background: #45a049;
+  background: #dc2626;
+  box-shadow: 0 4px 10px rgba(234, 88, 12, 0.3);
+}
+
+.submit-button:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .transcript-preview {
   margin-top: 24px;
   padding: 16px;
-  background: #f5f5f5;
+  background: #f1f5f9;
   border-radius: 12px;
   text-align: left;
+  border: 1px solid #e2e8f0;
 }
 
 .transcript-preview strong {
   display: block;
   margin-bottom: 8px;
-  color: #666;
+  color: #64748b;
 }
 
 .transcript-preview p {
   margin-bottom: 16px;
   line-height: 1.6;
+  color: #1e293b;
 }
 
 .loading {
@@ -229,12 +241,12 @@
 }
 
 .error-message {
-  background: #ffebee;
-  border: 2px solid #f44336;
+  background: #fee2e2;
+  border: 2px solid #dc2626;
   border-radius: 12px;
   padding: 20px;
   margin-bottom: 24px;
-  color: #c62828;
+  color: #991b1b;
 }
 
 .error-message p {
@@ -252,13 +264,22 @@
   padding: 10px 20px;
   border: none;
   border-radius: 8px;
-  background: #f44336;
+  background: #dc2626;
   color: white;
   font-weight: 500;
+  transition: all 0.2s;
+}
+
+.error-actions button:hover {
+  background: #b91c1c;
 }
 
 .error-actions button:last-child {
-  background: #666;
+  background: #64748b;
+}
+
+.error-actions button:last-child:hover {
+  background: #475569;
 }
 
 .typed-input {
@@ -274,20 +295,45 @@
   resize: vertical;
   min-height: 110px;
   padding: 12px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid #e2e8f0;
   border-radius: 8px;
   font-size: 15px;
   line-height: 1.5;
+  color: #1e293b;
 }
 
 .typed-input textarea:focus {
   outline: none;
-  border-color: #2196F3;
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.1);
 }
 
 .typed-actions {
   display: flex;
   gap: 10px;
+}
+
+.typed-actions button {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  background: #ea580c;
+  color: white;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.typed-actions button:hover {
+  background: #dc2626;
+}
+
+.cancel-button {
+  background: #94a3b8;
+}
+
+.cancel-button:hover {
+  background: #64748b;
 }
 
 .type-mode-container {
@@ -304,26 +350,27 @@
 
 .type-instructions p {
   font-size: 16px;
-  color: #666;
+  color: #64748b;
   line-height: 1.5;
 }
 
 .text-input-area {
   width: 100%;
   padding: 16px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid #e2e8f0;
   border-radius: 12px;
   font-size: 16px;
   line-height: 1.6;
   font-family: inherit;
   resize: vertical;
   min-height: 140px;
+  color: #1e293b;
 }
 
 .text-input-area:focus {
   outline: none;
-  border-color: #667eea;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.1);
 }
 
 .type-actions {
@@ -338,24 +385,24 @@
   font-weight: 600;
   border: none;
   border-radius: 8px;
-  background: #4CAF50;
+  background: #ea580c;
   color: white;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .type-actions button:hover:not(:disabled) {
-  background: #45a049;
+  background: #dc2626;
 }
 
 .type-actions button:disabled {
-  background: #ccc;
+  background: #cbd5e1;
   cursor: not-allowed;
   opacity: 0.6;
 }
 
 .voice-recorder.success {
-  background: linear-gradient(135deg, #81c784 0%, #66bb6a 100%);
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
   color: white;
   justify-content: center;
 }
@@ -366,7 +413,7 @@
 }
 
 .result-summary {
-  background: rgba(255,255,255,0.2);
+  background: rgba(255,255,255,0.15);
   padding: 20px;
   border-radius: 12px;
   text-align: left;
@@ -396,7 +443,7 @@
 
 .reset-button:hover {
   background: white;
-  color: #66bb6a;
+  color: #16a34a;
 }
 
 .voice-recorder.guided {
@@ -404,7 +451,7 @@
 }
 
 .voice-recorder.guided h3 {
-  color: #2196F3;
+  color: #ea580c;
   margin-bottom: 16px;
 }
 
@@ -412,27 +459,29 @@
   font-size: 20px;
   font-weight: 500;
   margin-bottom: 24px;
-  color: #333;
+  color: #1e293b;
 }
 
 .voice-recorder.guided input {
   width: 100%;
   padding: 16px;
-  border: 2px solid #e0e0e0;
+  border: 2px solid #e2e8f0;
   border-radius: 8px;
   font-size: 16px;
+  color: #1e293b;
   transition: border-color 0.2s;
 }
 
 .voice-recorder.guided input:focus {
   outline: none;
-  border-color: #2196F3;
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.1);
 }
 
 .hint {
   margin-top: 12px;
   font-size: 14px;
-  color: #999;
+  color: #94a3b8;
 }
 
 /* Mobile responsiveness */
