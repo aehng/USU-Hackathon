@@ -82,7 +82,7 @@ export default function Dashboard() {
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white shadow-sm">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 px-4 py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border border-orange-200 bg-white shadow-md">
+            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border border-orange-200 bg-[#e4e4e4] shadow-md">
               <img
                 src="/Screenshot 2026-02-28 011120.png"
                 alt="FlairUp logo"
