@@ -280,6 +280,8 @@ async def guided_log_start(request: Request):
         system_prompt = (
             "You are a compassionate health assistant helping someone log their symptoms. "
             "Your goal is to gather complete information through natural conversation. "
+            "IMPORTANT: You MUST ask at least 2-3 follow-up questions before completing. "
+            "Do NOT complete on your first response - always start by asking a question.\n\n"
             "Based on what the user tells you, ask ONE specific follow-up question to:\n"
             "1. Clarify symptom severity (1-10 scale if not mentioned)\n"
             "2. Identify potential triggers (food, stress, activities, environment) - THIS IS MOST IMPORTANT\n"
@@ -288,7 +290,7 @@ async def guided_log_start(request: Request):
             "5. Understand mood and emotional state\n\n"
             "Keep questions short, empathetic, and conversational. "
             "Ask about the MOST important missing information first. "
-            "After 2-4 questions, when you have enough information, respond with "
+            "Only after asking 2-3 questions and gathering enough information, respond with "
             "EXACTLY this format starting with the word COMPLETE followed by a colon and valid JSON object:\n"
             'COMPLETE:{"symptoms": ["headache", "pain"], "severity": 7, "potential_triggers": ["stress", "lack of sleep"], '
             '"mood": "tired", "body_location": ["head"], "time_context": "evening", "notes": "started after work"}\n\n'
@@ -305,7 +307,15 @@ async def guided_log_start(request: Request):
         assistant_message = call_llm_chat(guided_sessions[session_id])
         guided_sessions[session_id].append({"role": "assistant", "content": assistant_message})
         
-        # Check if already complete (enough info in initial transcript)
+        # Enforce at least one follow-up question before completion
+        user_message_count = sum(1 for msg in guided_sessions[session_id] if msg["role"] == "user")
+        if assistant_message.startswith("COMPLETE:") and user_message_count < 2:
+            # LLM tried to complete too early, force a question instead
+            logger.warning("LLM tried to complete without asking questions, forcing follow-up")
+            assistant_message = "On a scale of 1-10, how severe is your pain or discomfort?"
+            guided_sessions[session_id][-1] = {"role": "assistant", "content": assistant_message}
+        
+        # Check if complete (should only happen if NOT first response)
         if assistant_message.startswith("COMPLETE:"):
             extracted_data = _extract_completion_data(assistant_message)
             # Keep session for /finalize endpoint - will be deleted there
@@ -355,6 +365,14 @@ async def guided_log_respond(request: Request):
         # Get next question or completion from LLM
         assistant_message = call_llm_chat(guided_sessions[session_id])
         guided_sessions[session_id].append({"role": "assistant", "content": assistant_message})
+        
+        # Enforce at least 2 user messages before allowing completion
+        user_message_count = sum(1 for msg in guided_sessions[session_id] if msg["role"] == "user")
+        if assistant_message.startswith("COMPLETE:") and user_message_count < 2:
+            # Force another question if too early
+            logger.warning("LLM tried to complete too early in conversation, forcing another question")
+            assistant_message = "Can you tell me more about what might have triggered this? Any activities, foods, or situations before you noticed the symptoms?"
+            guided_sessions[session_id][-1] = {"role": "assistant", "content": assistant_message}
         
         # Check if complete
         if assistant_message.startswith("COMPLETE:"):
