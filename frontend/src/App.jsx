@@ -1,7 +1,12 @@
 import Dashboard from "./Dashboard.jsx";
+import { RefreshProvider } from "./context/RefreshContext.jsx";
 
 function App() {
-  return <Dashboard />
+  return (
+    <RefreshProvider>
+      <Dashboard />
+    </RefreshProvider>
+  );
 }
 
 export default App
