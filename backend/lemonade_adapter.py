@@ -320,6 +320,7 @@ async def openai_chat_completions(request: Request):
     messages = payload.get("messages", [])
     temperature = payload.get("temperature", 0.7)
     model = payload.get("model", MODEL)
+    default_model = "Qwen3-1.7B-Hybrid"
     
     if not messages:
         raise HTTPException(status_code=400, detail="messages field is required")
@@ -339,6 +340,24 @@ async def openai_chat_completions(request: Request):
         return response.model_dump()
         
     except Exception as exc:
+        # If model not found, retry with default model
+        if "model_not_found" in str(exc).lower() and model != default_model:
+            print(f"⚠️  Model '{model}' not found, retrying with default model '{default_model}'")
+            try:
+                response = client.chat.completions.create(
+                    model=default_model,
+                    messages=messages,
+                    temperature=temperature
+                )
+                print(f"✅ Retry with default model succeeded")
+                return response.model_dump()
+            except Exception as retry_exc:
+                print(f"❌ Retry also failed: {type(retry_exc).__name__}: {str(retry_exc)}")
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Chat completions failed: {str(retry_exc)}"
+                )
+        
         print(f"❌ OpenAI API error: {type(exc).__name__}: {str(exc)}")
         import traceback
         traceback.print_exc()

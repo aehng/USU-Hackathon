@@ -175,6 +175,7 @@ def call_llm_chat(messages: List[Dict], temperature: float = 0.7):
     # ⚠️ DO NOT CHANGE THIS URL UNDER ANY CIRCUMSTANCE - Production LLM endpoint
     llm_base = os.getenv("LLM_SERVER_URL", "https://llm.flairup.dpdns.org").rstrip('/')
     model = os.getenv("LLM_MODEL", "Qwen3-1.7B-Hybrid")
+    default_model = "Qwen3-1.7B-Hybrid"
     
     # For OpenAI-compatible API, append /v1 to base URL
     openai_base_url = f"{llm_base}/v1"
@@ -194,6 +195,19 @@ def call_llm_chat(messages: List[Dict], temperature: float = 0.7):
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
+        # If model not found, retry with default model
+        if "model_not_found" in str(e).lower() and model != default_model:
+            logger.warning(f"Model '{model}' not found on Lemonade server, retrying with '{default_model}'")
+            try:
+                response = client.chat.completions.create(
+                    model=default_model,
+                    messages=messages,
+                    temperature=temperature
+                )
+                return response.choices[0].message.content.strip()
+            except Exception as retry_e:
+                logger.error("Retry with default model failed: %s", retry_e)
+                raise HTTPException(status_code=502, detail=f"LLM chat service unavailable: {str(retry_e)}")
         logger.error("LLM chat request failed: %s", e)
         raise HTTPException(status_code=502, detail=f"LLM chat service unavailable: {str(e)}")
 
