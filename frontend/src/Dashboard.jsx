@@ -56,20 +56,6 @@ export default function Dashboard() {
   const hasPrediction =
     !!insights?.prediction && Object.keys(insights.prediction).length > 0;
   const hasAdvice = !!insights?.advice && Object.keys(insights.advice).length > 0;
-  const predictionData = {
-    title: insights?.prediction?.title || "AI prediction in progress",
-    body:
-      insights?.prediction?.body ||
-      "The model response is not available yet. Try logging another entry and refreshing.",
-    riskLevel: insights?.prediction?.riskLevel || "medium",
-  };
-  const adviceData = {
-    title: insights?.advice?.title || "AI guidance in progress",
-    body:
-      insights?.advice?.body ||
-      "Guidance is still being prepared. Keep tracking daily logs for stronger recommendations.",
-    disclaimer: insights?.advice?.disclaimer || "This is not medical advice.",
-  };
   const notEnoughDataMessage = insights?.message || stats?.message;
   const notEnoughData =
     !!notEnoughDataMessage && !hasInsights && !hasPrediction && !hasAdvice;
@@ -207,28 +193,28 @@ export default function Dashboard() {
           </div>
         )}
 
-        {activeTab === "main" && (
+        {activeTab === "main" && hasPrediction && (
           <section aria-labelledby="prediction-heading">
             <h2 id="prediction-heading" className="sr-only">
               Prediction
             </h2>
             <PredictionCard
-              title={predictionData.title}
-              body={predictionData.body}
-              riskLevel={predictionData.riskLevel}
+              title={insights.prediction.title}
+              body={insights.prediction.body}
+              riskLevel={insights.prediction.riskLevel}
             />
           </section>
         )}
 
-        {activeTab === "main" && (
+        {activeTab === "main" && hasAdvice && (
           <section aria-labelledby="advice-heading">
             <h2 id="advice-heading" className="mb-3 text-lg font-bold text-slate-900">
               LLM guidance
             </h2>
             <AdviceCard
-              title={adviceData.title}
-              body={adviceData.body}
-              disclaimer={adviceData.disclaimer}
+              title={insights.advice.title}
+              body={insights.advice.body}
+              disclaimer={insights.advice.disclaimer}
             />
           </section>
         )}
