@@ -140,7 +140,11 @@ function VoiceRecorder({ mode, onLogSaved }) {
         console.log('⚡ Calling quickLog...');
         const response = await quickLog(inputText);
         console.log('✅ Got response:', response);
-        setResult(response);
+        // Unwrap llm_response to match success screen expectations
+        setResult({
+          status: 'success',
+          ...response.llm_response
+        });
         triggerRefresh(); // This handles context/history
         if (onLogSaved) onLogSaved(); // <-- ADD THIS to refresh the dashboard charts
       } else {
@@ -153,10 +157,10 @@ function VoiceRecorder({ mode, onLogSaved }) {
           // Conversation complete immediately - finalize to get structured data
           try {
             const extractedData = await guidedLogFinalize(response.session_id);
+            // Unwrap extracted_data to match success screen expectations
             setResult({
               status: 'success',
-              message: 'Guided log completed',
-              extracted_data: extractedData
+              ...extractedData
             });
           } catch (finalizeError) {
             // If finalize fails, we still show success since data was saved to DB
@@ -200,10 +204,10 @@ function VoiceRecorder({ mode, onLogSaved }) {
 if (response.is_complete) {
   try {
     const data = await guidedLogFinalize(response.session_id);
-    
+    // Unwrap extracted_data to match success screen expectations
     setResult({
       status: 'success',
-      ...data // Spread the data directly since client.js already unwrapped it
+      ...data
     });
   } catch (finalizeError) {
     // If finalize fails, we still show success since data was saved to DB
