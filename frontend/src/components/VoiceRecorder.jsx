@@ -471,7 +471,7 @@ function VoiceRecorder({ mode }) {
       {isLoading && (
         <div className="loading">
           <div className="spinner"></div>
-          <p>Processing your log...</p>
+          <p>Analyzing with AI... (this may take 30-60 seconds)</p>
         </div>
       )}
 

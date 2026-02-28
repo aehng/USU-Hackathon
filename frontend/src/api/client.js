@@ -8,9 +8,21 @@ export const DEMO_USER_ID = 'demo-user-001';
 async function fetchJson(url, options = {}) {
   let response;
 
+  // Add 2-minute timeout for slow LLM processing
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minutes
+
   try {
-    response = await fetch(url, options);
+    response = await fetch(url, {
+      ...options,
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
   } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timed out after 2 minutes. The LLM might be processing - please wait or try a smaller model.`);
+    }
     throw new Error(`Network error reaching ${url}. Verify backend is running on ${API_BASE_URL}.`);
   }
 
