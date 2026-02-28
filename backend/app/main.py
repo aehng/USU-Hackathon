@@ -390,11 +390,74 @@ async def guided_log_respond(request: Request):
         assistant_message = call_llm_chat(guided_sessions[session_id], temperature=0.5)
         guided_sessions[session_id].append({"role": "assistant", "content": assistant_message})
         
+        # After 4+ user messages, force completion regardless of LLM output
+        if user_message_count >= 4:
+            logger.info(f"Reached {user_message_count} user messages, forcing completion")
+            # Extract data from conversation using /generate endpoint
+            conversation = guided_sessions[session_id]
+            transcript_parts = []
+            for msg in conversation:
+                if msg["role"] == "user":
+                    transcript_parts.append(f"User: {msg['content']}")
+                elif msg["role"] == "assistant" and not msg["content"].startswith("COMPLETE"):
+                    transcript_parts.append(f"Assistant: {msg['content']}")
+            
+            full_transcript = "\\n".join(transcript_parts)
+            
+            try:
+                extracted_data = call_llm({
+                    "user_id": body.get("user_id", "00000000-0000-0000-0000-000000000001"),
+                    "transcript": f"Conversation:\\n{full_transcript}\\n\\nExtract the symptom data."
+                })
+                extracted_data = sanitize_llm_data(extracted_data)
+                
+                return {
+                    "session_id": session_id,
+                    "question": None,
+                    "is_complete": True,
+                    "extracted_data": extracted_data
+                }
+            except Exception as e:
+                logger.error(f"Failed to force completion: {e}")
+                # Continue to normal flow
+        
         # Detect broken LLM outputs (thinking tags, XML tags, etc.)
         is_broken = ("<think>" in assistant_message.lower() or 
                     (assistant_message.strip().startswith("<") and 
                      not assistant_message.strip().startswith("<?") and
                      ">" in assistant_message[:50]))  # Has closing bracket early = likely tag
+        
+        # If broken after 3rd user message, force completion instead of asking again
+        if is_broken and user_message_count >= 3:
+            logger.warning("LLM returned broken output after 3 questions, forcing completion")
+            # Use /generate to extract from conversation
+            conversation = guided_sessions[session_id]
+            transcript_parts = []
+            for msg in conversation:
+                if msg["role"] == "user":
+                    transcript_parts.append(f"User: {msg['content']}")
+                elif msg["role"] == "assistant" and not msg["content"].startswith("COMPLETE"):
+                    transcript_parts.append(f"Assistant: {msg['content']}")
+            
+            full_transcript = "\\n".join(transcript_parts)
+            
+            try:
+                extracted_data = call_llm({
+                    "user_id": body.get("user_id", "00000000-0000-0000-0000-000000000001"),
+                    "transcript": f"Conversation:\\n{full_transcript}\\n\\nExtract the symptom data."
+                })
+                extracted_data = sanitize_llm_data(extracted_data)
+                
+                return {
+                    "session_id": session_id,
+                    "question": None,
+                    "is_complete": True,
+                    "extracted_data": extracted_data
+                }
+            except Exception as e:
+                logger.error(f"Failed to force completion: {e}")
+                # Continue to normal flow
+        
         if is_broken:
             logger.warning("LLM returned broken output with tags, using default question")
             # Determine which question to ask based on user count
