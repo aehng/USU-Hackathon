@@ -14,7 +14,24 @@ import {
   NOT_ENOUGH_DATA_INSIGHTS,
   NOT_ENOUGH_DATA_STATS,
 } from "./mock/dashboardData.js";
-
+// --- ADD THIS RIGHT ABOVE YOUR DASHBOARD COMPONENT ---
+const CustomTooltip = ({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-lg">
+        {/* Shows the Date (the X-axis label) */}
+        <p className="mb-1 text-sm font-bold text-slate-900">Date: {label}</p>
+        
+        {/* Shows the Severity Value */}
+        <p className="text-sm font-medium text-sky-600">
+          Severity: <span className="text-base font-bold">{payload[0].value}</span> / 10
+        </p>
+      </div>
+    );
+  }
+  return null;
+};
+// ---------------------------------------------------
 export default function Dashboard() {
   const [insights, setInsights] = useState(null);
   const [stats, setStats] = useState(null);
@@ -22,31 +39,33 @@ export default function Dashboard() {
   const [useMock, setUseMock] = useState(false); // Toggle to false when API is ready
   const [activeTab, setActiveTab] = useState("main"); // 'main' | 'guided' | 'quick' | 'history'
 
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      if (useMock) {
-        // Simulate network delay
-        await new Promise((r) => setTimeout(r, 400));
-        setInsights(MOCK_INSIGHTS);
-        setStats(MOCK_STATS);
-      } else {
-        try {
-          const [insightsRes, statsRes] = await Promise.all([
-            fetch(`${API_BASE_URL}/api/insights/${DEMO_USER_ID}`).then(r => r.json()),
-            fetch(`${API_BASE_URL}/api/stats/${DEMO_USER_ID}`).then(r => r.json()),
-          ]);
-          setInsights(insightsRes);
-          setStats(statsRes);
-        } catch (err) {
-          console.error(err);
-          setInsights(NOT_ENOUGH_DATA_INSIGHTS);
-          setStats(NOT_ENOUGH_DATA_STATS);
-        }
+  // 1. Pull the fetch logic OUT into its own reusable function
+  const refreshDashboardData = async () => {
+    setLoading(true);
+    if (useMock) {
+      await new Promise((r) => setTimeout(r, 400));
+      setInsights(MOCK_INSIGHTS);
+      setStats(MOCK_STATS);
+    } else {
+      try {
+        const [insightsRes, statsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/insights/${DEMO_USER_ID}`).then(r => r.json()),
+          fetch(`${API_BASE_URL}/api/stats/${DEMO_USER_ID}`).then(r => r.json()),
+        ]);
+        setInsights(insightsRes);
+        setStats(statsRes);
+      } catch (err) {
+        console.error(err);
+        setInsights(NOT_ENOUGH_DATA_INSIGHTS);
+        setStats(NOT_ENOUGH_DATA_STATS);
       }
-      setLoading(false);
     }
-    fetchData();
+    setLoading(false);
+  };
+
+  // 2. The useEffect now just calls that function on load
+  useEffect(() => {
+    refreshDashboardData();
   }, [useMock]);
 
   const notEnoughData =
@@ -250,14 +269,10 @@ export default function Dashboard() {
                     stroke="currentColor"
                     className="text-slate-500"
                   />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: "8px",
-                      border: "1px solid var(--tw-border-color)",
-                    }}
-                    formatter={(value) => [`${value}/10`, "Severity"]}
-                    labelFormatter={(label) => `Date: ${label}`}
-                  />
+                  
+                  {/* --- NEW CLEAN TOOLTIP HERE --- */}
+                  <Tooltip content={<CustomTooltip />} />
+                  
                   <Line
                     type="monotone"
                     dataKey="severity"
@@ -331,7 +346,7 @@ export default function Dashboard() {
             <p className="mb-4 text-sm text-slate-600">
               Start with a short description and we&apos;ll walk you through a few smart follow-up questions.
             </p>
-            <VoiceRecorder mode="guided" />
+            <VoiceRecorder mode="guided" onLogSaved={refreshDashboardData} />
           </section>
         )}
 
@@ -341,7 +356,7 @@ export default function Dashboard() {
             <p className="mb-4 text-sm text-slate-600">
               Fire-and-forget: one fast voice or typed log when you&apos;re in a hurry.
             </p>
-            <VoiceRecorder mode="quick" />
+           <VoiceRecorder mode="quick" onLogSaved={refreshDashboardData} />
           </section>
         )}
 
