@@ -56,6 +56,20 @@ export default function Dashboard() {
   const hasPrediction =
     !!insights?.prediction && Object.keys(insights.prediction).length > 0;
   const hasAdvice = !!insights?.advice && Object.keys(insights.advice).length > 0;
+  const predictionData = {
+    title: insights?.prediction?.title || "AI prediction in progress",
+    body:
+      insights?.prediction?.body ||
+      "The model response is not available yet. Try logging another entry and refreshing.",
+    riskLevel: insights?.prediction?.riskLevel || "medium",
+  };
+  const adviceData = {
+    title: insights?.advice?.title || "AI guidance in progress",
+    body:
+      insights?.advice?.body ||
+      "Guidance is still being prepared. Keep tracking daily logs for stronger recommendations.",
+    disclaimer: insights?.advice?.disclaimer || "This is not medical advice.",
+  };
   const notEnoughDataMessage = insights?.message || stats?.message;
   const notEnoughData =
     !!notEnoughDataMessage && !hasInsights && !hasPrediction && !hasAdvice;
@@ -63,6 +77,10 @@ export default function Dashboard() {
   const hasTriggerData = stats?.trigger_correlations?.length > 0;
   const hasHeatmapData = stats?.symptom_temporal_heatmap?.length > 0;
   const hasActivityCorrelationData = stats?.activity_symptom_correlations?.length > 0;
+  const severityTrendData = (stats?.severity_trends || []).map((point, index) => ({
+    ...point,
+    chartIndex: index,
+  }));
 
   if (loading) {
     return (
@@ -189,28 +207,28 @@ export default function Dashboard() {
           </div>
         )}
 
-        {activeTab === "main" && hasPrediction && (
+        {activeTab === "main" && (
           <section aria-labelledby="prediction-heading">
             <h2 id="prediction-heading" className="sr-only">
               Prediction
             </h2>
             <PredictionCard
-              title={insights.prediction.title}
-              body={insights.prediction.body}
-              riskLevel={insights.prediction.riskLevel}
+              title={predictionData.title}
+              body={predictionData.body}
+              riskLevel={predictionData.riskLevel}
             />
           </section>
         )}
 
-        {activeTab === "main" && hasAdvice && (
+        {activeTab === "main" && (
           <section aria-labelledby="advice-heading">
             <h2 id="advice-heading" className="mb-3 text-lg font-bold text-slate-900">
               LLM guidance
             </h2>
             <AdviceCard
-              title={insights.advice.title}
-              body={insights.advice.body}
-              disclaimer={insights.advice.disclaimer}
+              title={adviceData.title}
+              body={adviceData.body}
+              disclaimer={adviceData.disclaimer}
             />
           </section>
         )}
@@ -242,15 +260,18 @@ export default function Dashboard() {
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart
-                  data={stats.severity_trends}
+                  data={severityTrendData}
                   margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
                   style={{ pointerEvents: "auto" }}
                 >
                   <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200" />
                   <XAxis
-                    dataKey="date"
+                    dataKey="chartIndex"
                     tick={{ fontSize: 12 }}
-                    tickFormatter={(v) => v.slice(5)}
+                    tickFormatter={(value) => {
+                      const point = severityTrendData[value];
+                      return point?.date ? point.date.slice(5) : "";
+                    }}
                     stroke="currentColor"
                     className="text-slate-500"
                   />
@@ -262,9 +283,7 @@ export default function Dashboard() {
                   />
                   
                   <Tooltip
-                    key={`tooltip-${stats?.severity_trends?.length}`}
-                    shared={false} 
-                    intersect={false}
+                    key={`tooltip-${severityTrendData.length}-${severityTrendData[0]?.date || "none"}-${severityTrendData[severityTrendData.length - 1]?.date || "none"}`}
                     cursor={{ stroke: '#cbd5e1', strokeWidth: 1 }}
                     contentStyle={{ 
                       backgroundColor: '#ffffff', 
@@ -276,7 +295,10 @@ export default function Dashboard() {
                       const displayValue = value !== undefined ? value : 0;
                       return [`${displayValue} / 10`, "Intensity"];
                     }}
-                    labelFormatter={(label) => `Date: ${label}`}
+                    labelFormatter={(label) => {
+                      const point = severityTrendData[label];
+                      return `Date: ${point?.date || label}`;
+                    }}
                   />
                   
                   <Line
