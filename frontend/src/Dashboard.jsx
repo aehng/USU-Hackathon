@@ -37,7 +37,7 @@ export default function Dashboard() {
   const [insights, setInsights] = useState(null);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [useMock, setUseMock] = useState(true); // Toggle to false when API is ready
+  const [useMock, setUseMock] = useState(false); // Toggle to false when API is ready
 
   useEffect(() => {
     async function fetchData() {
@@ -49,7 +49,7 @@ export default function Dashboard() {
         setStats(MOCK_STATS);
       } else {
         try {
-          const base = import.meta.env.VITE_API_URL || "http://localhost:8000";
+          const base = import.meta.env.VITE_API_URL || "http://localhost:8080";
           const [insightsRes, statsRes] = await Promise.all([
             fetch(`${base}/api/insights/${DEMO_USER_ID}`),
             fetch(`${base}/api/stats/${DEMO_USER_ID}`),
