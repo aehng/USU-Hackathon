@@ -15,24 +15,6 @@ import {
   NOT_ENOUGH_DATA_STATS,
 } from "./mock/dashboardData.js";
 // --- ADD THIS RIGHT ABOVE YOUR DASHBOARD COMPONENT ---
-const CustomTooltip = ({ active, payload, label }) => {
-  if (active && payload && payload.length > 0) {
-    // Safely grab the value whether Recharts puts it in .value or nests it in .payload
-    const severityValue = payload[0].value !== undefined 
-      ? payload[0].value 
-      : payload[0].payload.severity;
-
-    return (
-      <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-lg">
-        <p className="mb-1 text-sm font-bold text-slate-900">Date: {label}</p>
-        <p className="text-sm font-medium text-sky-600">
-          Severity: <span className="text-base font-bold">{severityValue}</span> / 10
-        </p>
-      </div>
-    );
-  }
-  return null;
-};
 // ---------------------------------------------------
 export default function Dashboard() {
   const [insights, setInsights] = useState(null);
@@ -273,7 +255,24 @@ export default function Dashboard() {
                   />
                   
                   {/* --- NEW CLEAN TOOLTIP HERE --- */}
-                  <Tooltip content={<CustomTooltip />} />
+                 <Tooltip 
+                    // 'shared: false' ensures the tooltip focuses ONLY on the active dot
+                    shared={false} 
+                    // 'intersect: true' makes it trigger exactly when you are over the point
+                    intersect={true}
+                    cursor={{ stroke: '#cbd5e1', strokeWidth: 1 }}
+                    contentStyle={{ 
+                      backgroundColor: '#ffffff', 
+                      borderRadius: '8px', 
+                      border: '1px solid #e2e8f0', 
+                      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
+                    }}
+                    // This is the magic line: 'value' and 'name' are passed dynamically for EACH point
+                    formatter={(value, name, props) => {
+                      return [`${value} / 10`, "Intensity"];
+                    }}
+                    labelFormatter={(label) => `Date: ${label}`}
+                  />
                   
                   <Line
                     type="monotone"
@@ -297,7 +296,10 @@ export default function Dashboard() {
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  data={stats.trigger_correlations}
+                  // Ensure we handle 'null' stats with the optional chaining and empty array fallback
+                  data={[...(stats?.trigger_correlations || [])]
+                    .sort((a, b) => b.value - a.value) // Highest first
+                    .slice(0, 3)}                     // Top 3 only
                   layout="vertical"
                   margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                 >

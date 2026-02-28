@@ -187,30 +187,20 @@ function VoiceRecorder({ mode, onLogSaved }) {
       
       console.log('📝 Guided response:', response);
       
-      if (response.is_complete) {
-        try {
-          // It tries to get the formatted data
-          const extractedData = await guidedLogFinalize(response.session_id);
-          setResult({
-            status: 'success',
-            message: 'Guided log completed',
-            ...extractedData
-          });
-        } catch (finalizeError) {
-          // If the 400 happens, we KNOW it saved to the DB anyway.
-          // So we just force the success screen to show up!
-          setResult({
-            status: 'success',
-            message: 'Log saved successfully! Check dashboard for details.',
-          });
-        }
-        
-        // This runs no matter what, pulling the REAL data into your charts
-        setGuidedState(null);
-        setAnswers([]);
-        triggerRefresh();
-        if (onLogSaved) onLogSaved(); 
-      } else {
+// Inside handleGuidedAnswer
+if (response.is_complete) {
+  const data = await guidedLogFinalize(response.session_id);
+  
+  setResult({
+    status: 'success',
+    ...data // Spread the data directly since client.js already unwrapped it
+  });
+  
+  setGuidedState(null);
+  setAnswers([]);
+  triggerRefresh();
+  if (onLogSaved) onLogSaved();
+} else {
         // More questions - update state
         setGuidedState(response);
         setAnswers([...answers, { question: guidedState.question, answer }]);
