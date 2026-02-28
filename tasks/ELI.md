@@ -14,46 +14,46 @@ The log screen is the first thing a user sees and the feature that makes this ap
 ## Phase 1 — Setup (Fri 5:00–6:00pm)
 - [X] Create the GitHub repo and add Noah, Clayton, and Max as collaborators
 - [X] Push the initial folder structure so everyone can clone
-- [ ] Confirm everyone has cloned the repo and can SSH into the VM
-- [ ] Update the VM IP in README.md once it's known
-- [ ] Spin up Docker Compose on the VM and confirm all three services start
-- [ ] Create your branch and start your frontend project
+- [X] Confirm everyone has cloned the repo and can SSH into the VM
+- [X] Update the VM IP in README.md once it's known
+- [X] Spin up Docker Compose on the VM and confirm all three services start (frontend+backend working)
+- [X] Create your branch and start your frontend project (branch `eli/voice-ui` created)
 
 ---
 
 ## Phase 2 — Voice Recorder Component (Fri 6:00–8:00pm)
-- [ ] Build the core voice recorder component — a large mic button the user taps to record
-- [ ] Wire up the Web Speech API (built into Chrome/Edge — no library needed)
-- [ ] Show a live transcript as the user speaks
-- [ ] **Add a manual "Stop & Submit" button** — do NOT auto-submit when silence is detected
+- [X] Build the core voice recorder component — a large mic button the user taps to record
+- [X] Wire up the Web Speech API (built into Chrome/Edge — no library needed)
+- [X] Show a live transcript as the user speaks
+- [X] **Add a manual "Stop & Submit" button** — do NOT auto-submit when silence is detected
   - Web Speech API cuts off aggressively during natural pauses (breathing, thinking)
   - For a live demo where timing might be nervous, manual submission prevents half-finished sentences
   - User can tap "Stop" to end recording and submit whenever they're ready
-- [ ] **Handle Web Speech API timeout:**
+- [X] **Handle Web Speech API timeout:**
   - Stops listening after ~15 seconds of silence
   - Stops listening after ~30 seconds total (browser-dependent)
   - Show "Still recording..." message at 25 seconds, warn "Please tap Stop to submit" at 28 seconds
   - Never auto-submit (user always controls with Stop button)
-- [ ] Show a loading state while waiting for the backend to respond
-- [ ] Display the extracted symptom tags the backend returns (e.g. "headache · severity 7/10")
-- [ ] Test in **Chrome or Edge only** — Web Speech API does not work in Firefox
+- [X] Show a loading state while waiting for the backend to respond
+- [X] Display the extracted symptom tags the backend returns (e.g. "headache · severity 7/10")
+- [X] Test in **Chrome or Edge only** — Web Speech API does not work in Firefox
 
 ---
 
 ## Phase 3 — Log Screen + Modes (Fri 8:00–10:00pm)
-- [ ] Build the full log page with a toggle at the top: **Quick Log** vs **Guided**
-- [ ] **Quick log flow:** Record → transcript → extracted tags shown → user confirms → logged ✓
-- [ ] **Guided flow:** Record → backend returns 2-3 follow-up questions → show each one at a time → user speaks/types answer → all submitted together → logged ✓
-- [ ] Build a confirmation screen ("Logged! 🎉") showing a summary of what was captured
-- [ ] Connect to the correct backend routes depending on mode
-- [ ] **Build error handling:**
+- [X] Build the full log page with a toggle at the top: **Quick Log** vs **Guided**
+- [X] **Quick log flow:** Record → transcript → extracted tags shown → user confirms → logged ✓
+- [X] **Guided flow:** Record → backend returns 2-3 follow-up questions → show each one at a time → user speaks/types answer → all submitted together → logged ✓
+- [X] Build a confirmation screen ("Logged! 🎉") showing a summary of what was captured
+- [X] Connect to the correct backend routes depending on mode (placeholder endpoints currently)
+- [X] **Build error handling:**
   - If log endpoint fails (500 error):
     - Show error message
     - Offer "Try Again" button (re-submit same transcript)
     - Offer "Type Instead" button (manual form fallback)
   - If transcript is empty:
     - Don't submit, show: "No speech detected. Please try again."
-- [ ] Build a shared API client module (`frontend/src/api/client.js`) that Max can import from
+- [X] Build a shared API client module (`frontend/src/api/client.js`) that Max can import from
   - Export both the API functions and `DEMO_USER_ID` constant
 
 > **Priority:** Nail quick log first. Guided is the polish layer.
@@ -61,7 +61,7 @@ The log screen is the first thing a user sees and the feature that makes this ap
 ---
 
 ## Phase 4 — RefreshContext + Integration (Fri 10pm–Sat 1am)
-- [ ] Create a global refresh signal using React Context
+- [X] Create a global refresh signal using React Context
   - Create `frontend/src/context/RefreshContext.jsx`:
   ```jsx
   import React, { createContext, useState } from 'react';

@@ -19,6 +19,7 @@ function VoiceRecorder({ mode }) {
   
   const recognitionRef = useRef(null);
   const timerRef = useRef(null);
+  const activeStreamRef = useRef(null);
   const { triggerRefresh } = useContext(RefreshContext);
 
   // Initialize Web Speech API
@@ -84,6 +85,10 @@ function VoiceRecorder({ mode }) {
       if (recognitionRef.current) {
         recognitionRef.current.stop();
       }
+      if (activeStreamRef.current) {
+        activeStreamRef.current.getTracks().forEach(track => track.stop());
+        activeStreamRef.current = null;
+      }
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
@@ -125,19 +130,45 @@ function VoiceRecorder({ mode }) {
     };
   }, [isRecording]);
 
-  const startRecording = () => {
+  const ensureMicrophonePermission = async () => {
+    if (!window.isSecureContext) {
+      throw new Error('Microphone access requires HTTPS or localhost. Open the app as https://... or http://localhost:5173.');
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error('Microphone API is unavailable in this browser context. Please use Chrome or Edge.');
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      activeStreamRef.current = stream;
+    } catch (error) {
+      if (error.name === 'NotAllowedError' || error.name === 'SecurityError') {
+        throw new Error('Microphone permission is blocked. In Edge: click the lock icon in the address bar -> Site permissions -> Microphone -> Allow, then try again.');
+      }
+
+      if (error.name === 'NotFoundError') {
+        throw new Error('No microphone was found on this device.');
+      }
+
+      throw new Error('Could not access microphone. Please check browser permissions and try again.');
+    }
+  };
+
+  const startRecording = async () => {
     setError(null);
     setResult(null);
     setTranscript('');
     setRecordingTime(0);
     setShowWarning(false);
-    setIsRecording(true);
 
     try {
+      await ensureMicrophonePermission();
+      setIsRecording(true);
       recognitionRef.current?.start();
     } catch (e) {
       console.error('Failed to start recording:', e);
-      setError('Failed to start recording. Please try again.');
+      setError(e.message || 'Failed to start recording. Please try again.');
       setIsRecording(false);
     }
   };
@@ -154,6 +185,11 @@ function VoiceRecorder({ mode }) {
     
     if (timerRef.current) {
       clearInterval(timerRef.current);
+    }
+
+    if (activeStreamRef.current) {
+      activeStreamRef.current.getTracks().forEach(track => track.stop());
+      activeStreamRef.current = null;
     }
   };
 
@@ -190,7 +226,13 @@ function VoiceRecorder({ mode }) {
 
   const handleTryAgain = () => {
     setError(null);
-    handleStopAndSubmit();
+
+    if (transcript.trim()) {
+      handleStopAndSubmit();
+      return;
+    }
+
+    startRecording();
   };
 
   const handleTypeInstead = () => {
@@ -334,7 +376,6 @@ function VoiceRecorder({ mode }) {
           <button 
             className="mic-button" 
             onClick={startRecording}
-            disabled={!!error}
           >
             🎤
           </button>
