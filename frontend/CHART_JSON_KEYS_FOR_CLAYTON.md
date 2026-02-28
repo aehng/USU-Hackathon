@@ -64,22 +64,24 @@ Max’s dashboard charts expect these **exact** keys. Map your analysis output t
 
 ---
 
-## 4. Trigger × symptom heatmap
+## 4. Symptom heatmap (day × time of day)
 
-**Top-level key:** `trigger_symptom_correlations`  
-**Type:** array of objects (one per trigger–symptom pair with a correlation)
+**Top-level key:** `symptom_temporal_heatmap`  
+**Type:** array of objects. One entry per (symptom, day, time_of_day) with a frequency/count. Dashboard shows one symptom at a time via dropdown; X axis = day, Y axis = time of day.
 
-| Key      | Type   | Notes                    |
-|----------|--------|---------------------------|
-| `trigger`| string | Trigger name              |
-| `symptom`| string | Symptom name              |
-| `score`  | number | Correlation 0–1           |
+| Key           | Type   | Notes                                      |
+|---------------|--------|--------------------------------------------|
+| `symptom`     | string | Symptom name (used in dropdown)            |
+| `day`         | string | Day of week: Monday … Sunday               |
+| `time_of_day` | string | One of: morning, afternoon, evening, night |
+| `value`       | number | Frequency/count for that cell              |
 
 **Example:**
 ```json
-"trigger_symptom_correlations": [
-  { "trigger": "Caffeine", "symptom": "Headache", "score": 0.72 },
-  { "trigger": "Poor sleep", "symptom": "Fatigue", "score": 0.82 }
+"symptom_temporal_heatmap": [
+  { "symptom": "Headache", "day": "Monday", "time_of_day": "morning", "value": 2 },
+  { "symptom": "Headache", "day": "Monday", "time_of_day": "afternoon", "value": 5 },
+  { "symptom": "Fatigue", "day": "Monday", "time_of_day": "morning", "value": 8 }
 ]
 ```
 
@@ -100,7 +102,7 @@ The dashboard also reads these on the stats payload:
 
 - **severity_trends** → `[{ "date", "severity" }, ...]`
 - **trigger_correlations** → `[{ "name", "value" }, ...]`
-- **trigger_symptom_correlations** → `[{ "trigger", "symptom", "score" }, ...]` (heatmap)
+- **symptom_temporal_heatmap** → `[{ "symptom", "day", "time_of_day", "value" }, ...]` (day × time heatmap, symptom dropdown)
 - **symptom_frequency** → `[{ "name", "value" }, ...]`
 
 Spelling and key names must match exactly or the charts will be empty.

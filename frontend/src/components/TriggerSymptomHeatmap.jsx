@@ -1,89 +1,116 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+
+const DAY_ORDER = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const TIME_ORDER = ["morning", "afternoon", "evening", "night"];
 
 /**
- * Builds a trigger × symptom heatmap from an array of { trigger, symptom, score }.
- * Rows = triggers, columns = symptoms. Score 0–1 maps to color intensity.
+ * Heatmap: X = days, Y = time of day. Dropdown selects which symptom to show.
+ * Data: array of { symptom, day, time_of_day, value }.
  */
 export default function TriggerSymptomHeatmap({ data }) {
-  const { triggers, symptoms, grid } = useMemo(() => {
-    if (!data?.length) return { triggers: [], symptoms: [], grid: new Map() };
+  const { symptoms, gridBySymptom } = useMemo(() => {
+    if (!data?.length) return { symptoms: [], gridBySymptom: new Map() };
 
-    const triggerSet = new Set();
     const symptomSet = new Set();
-    const key = (t, s) => `${t}\0${s}`;
+    const key = (symptom, day, time) => `${symptom}\0${day}\0${time}`;
     const gridMap = new Map();
 
-    for (const { trigger, symptom, score } of data) {
-      triggerSet.add(trigger);
+    for (const { symptom, day, time_of_day, value } of data) {
       symptomSet.add(symptom);
-      gridMap.set(key(trigger, symptom), typeof score === "number" ? score : 0);
+      gridMap.set(key(symptom, day, time_of_day), typeof value === "number" ? value : 0);
     }
 
-    const triggers = Array.from(triggerSet).sort();
     const symptoms = Array.from(symptomSet).sort();
-    return { triggers, symptoms, grid: gridMap };
+    return { symptoms, gridBySymptom: gridMap };
   }, [data]);
 
-  if (triggers.length === 0 || symptoms.length === 0) return null;
+  const [selectedSymptom, setSelectedSymptom] = useState(symptoms[0] ?? "");
 
-  const getCellColor = (score) => {
-    if (score == null || Number.isNaN(score)) return "bg-slate-100 dark:bg-slate-700";
-    const t = Math.max(0, Math.min(1, score));
-    // Violet scale: light (low) -> dark (high)
-    if (t < 0.25) return "bg-violet-100 dark:bg-violet-900/40";
-    if (t < 0.5) return "bg-violet-200 dark:bg-violet-800/50";
-    if (t < 0.75) return "bg-violet-400 dark:bg-violet-600";
+  const getCellValue = (day, time) => {
+    if (!selectedSymptom) return null;
+    return gridBySymptom.get(`${selectedSymptom}\0${day}\0${time}`) ?? null;
+  };
+
+  const getCellColor = (value) => {
+    if (value == null || Number.isNaN(value)) return "bg-slate-100 dark:bg-slate-700/50";
+    if (value === 0) return "bg-slate-100 dark:bg-slate-700/50";
+    if (value <= 2) return "bg-violet-100 dark:bg-violet-900/40";
+    if (value <= 4) return "bg-violet-200 dark:bg-violet-800/50";
+    if (value <= 6) return "bg-violet-400 dark:bg-violet-600";
     return "bg-violet-600 dark:bg-violet-500 text-white";
   };
 
-  const key = (t, s) => `${t}\0${s}`;
+  if (symptoms.length === 0) return null;
 
   return (
-    <div className="overflow-x-auto">
-      <div className="inline-block min-w-0">
-        <table className="w-full border-collapse text-sm">
-          <thead>
-            <tr>
-              <th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-left font-medium text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                Trigger
-              </th>
-              {symptoms.map((s) => (
-                <th
-                  key={s}
-                  className="border border-slate-200 bg-slate-50 px-2 py-1.5 font-medium text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
-                >
-                  {s}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {triggers.map((t) => (
-              <tr key={t}>
-                <td className="whitespace-nowrap border border-slate-200 bg-slate-50 px-2 py-1.5 font-medium text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
-                  {t}
-                </td>
-                {symptoms.map((s) => {
-                  const score = grid.get(key(t, s));
-                  const pct = score != null ? Math.round(score * 100) : null;
-                  return (
-                    <td
-                      key={s}
-                      className={`border border-slate-200 px-2 py-1.5 text-center dark:border-slate-600 ${getCellColor(score)}`}
-                      title={pct != null ? `${t} → ${s}: ${pct}% correlation` : ""}
-                    >
-                      {pct != null ? `${pct}%` : "—"}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-          Higher % = stronger correlation between trigger and symptom.
-        </p>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <label htmlFor="heatmap-symptom" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          Symptom:
+        </label>
+        <select
+          id="heatmap-symptom"
+          value={selectedSymptom}
+          onChange={(e) => setSelectedSymptom(e.target.value)}
+          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-800 shadow-sm focus:border-violet-500 focus:outline-none focus:ring-1 focus:ring-violet-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200"
+        >
+          {symptoms.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
       </div>
+
+      <div className="overflow-x-auto">
+        <div className="inline-block min-w-0">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr>
+                <th className="border border-slate-200 bg-slate-50 px-2 py-1.5 text-left font-medium text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  Time
+                </th>
+                {DAY_ORDER.map((day) => (
+                  <th
+                    key={day}
+                    className="border border-slate-200 bg-slate-50 px-2 py-1.5 font-medium text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300"
+                  >
+                    {day.slice(0, 3)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {TIME_ORDER.map((time) => (
+                <tr key={time}>
+                  <td className="whitespace-nowrap border border-slate-200 bg-slate-50 px-2 py-1.5 font-medium capitalize text-slate-700 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200">
+                    {time}
+                  </td>
+                  {DAY_ORDER.map((day) => {
+                    const value = getCellValue(day, time);
+                    return (
+                      <td
+                        key={day}
+                        className={`min-w-[2.5rem] border border-slate-200 px-2 py-1.5 text-center dark:border-slate-600 ${getCellColor(value)}`}
+                        title={
+                          value != null
+                            ? `${selectedSymptom}: ${day} ${time}, count ${value}`
+                            : ""
+                        }
+                      >
+                        {value != null ? value : "—"}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <p className="text-xs text-slate-500 dark:text-slate-400">
+        Frequency of &quot;{selectedSymptom}&quot; by day and time of day. Darker = more often logged.
+      </p>
     </div>
   );
 }

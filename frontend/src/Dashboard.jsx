@@ -78,7 +78,7 @@ export default function Dashboard() {
   const hasPrediction = insights?.prediction && !notEnoughData;
   const hasSeverityData = stats?.severity_trends?.length > 0;
   const hasTriggerData = stats?.trigger_correlations?.length > 0;
-  const hasHeatmapData = stats?.trigger_symptom_correlations?.length > 0;
+  const hasHeatmapData = stats?.symptom_temporal_heatmap?.length > 0;
   const hasSymptomData = stats?.symptom_frequency?.length > 0;
 
   if (loading) {
@@ -233,9 +233,9 @@ export default function Dashboard() {
         {hasHeatmapData && (
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-lg font-semibold text-slate-800 dark:text-slate-200">
-              Trigger × symptom correlation
+              When do symptoms show up?
             </h2>
-            <TriggerSymptomHeatmap data={stats.trigger_symptom_correlations} />
+            <TriggerSymptomHeatmap data={stats.symptom_temporal_heatmap} />
           </section>
         )}
 
