@@ -6,14 +6,13 @@ import AdviceCard from "./components/AdviceCard.jsx";
 import TriggerSymptomHeatmap from "./components/TriggerSymptomHeatmap.jsx";
 import ActivitySymptomTable from "./components/ActivitySymptomTable.jsx";
 import VoiceRecorder from "./components/VoiceRecorder.jsx";
+import { API_BASE_URL, DEMO_USER_ID } from "./api/client.js";
 import {
   MOCK_INSIGHTS,
   MOCK_STATS,
   NOT_ENOUGH_DATA_INSIGHTS,
   NOT_ENOUGH_DATA_STATS,
 } from "./mock/dashboardData.js";
-
-const DEMO_USER_ID = "00000000-0000-0000-0000-000000000001";
 
 export default function Dashboard() {
   const [insights, setInsights] = useState(null);
@@ -32,7 +31,7 @@ export default function Dashboard() {
         setStats(MOCK_STATS);
       } else {
         try {
-          const base = import.meta.env.VITE_API_URL || "http://localhost:8080";
+          const base = API_BASE_URL;
           const [insightsRes, statsRes] = await Promise.all([
             fetch(`${base}/api/insights/${DEMO_USER_ID}`),
             fetch(`${base}/api/stats/${DEMO_USER_ID}`),
