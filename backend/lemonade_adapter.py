@@ -36,6 +36,11 @@ client = OpenAI(
     base_url=LEMONADE_BASE.rstrip("/")
 )
 
+print(f"🚀 Lemonade Adapter starting...")
+print(f"   Lemonade URL: {LEMONADE_BASE}")
+print(f"   Model: {MODEL}")
+print(f"   Attempting to connect to Lemonade...")
+
 
 @app.post("/generate")
 async def generate(request: Request):
@@ -77,6 +82,7 @@ async def generate(request: Request):
 
     try:
         # Use .parse() for strict schema validation
+        print(f"🔄 Sending request to Lemonade at {LEMONADE_BASE} with model {MODEL}")
         response = client.beta.chat.completions.parse(
             model=MODEL,
             response_format=SymptomExtraction,
@@ -89,9 +95,13 @@ async def generate(request: Request):
         
         # .parsed returns the validated Pydantic object
         parsed_obj = response.choices[0].message.parsed
+        print(f"✅ Successfully extracted symptoms: {parsed_obj.symptoms}")
         return json.loads(parsed_obj.model_dump_json())
 
     except Exception as exc:
+        print(f"❌ LLM extraction error: {type(exc).__name__}: {str(exc)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
             status_code=502,
             detail=f"LLM extraction failed: {str(exc)}"
