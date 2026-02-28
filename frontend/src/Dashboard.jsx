@@ -25,6 +25,7 @@ export default function Dashboard() {
     const candidates = [API_BASE_URL];
     try {
       const parsed = new URL(API_BASE_URL);
+      // ⚠️ DO NOT CHANGE PORTS 8001/8002 - Production fallback logic
       if (parsed.port === "8001") {
         candidates.push(`${parsed.protocol}//${parsed.hostname}:8002`);
       }
