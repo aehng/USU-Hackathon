@@ -130,10 +130,10 @@
   height: 120px;
   border-radius: 50%;
   border: none;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #fb923c 0%, #f97316 40%, #ea580c 100%);
   color: white;
   font-size: 48px;
-  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.4);
+  box-shadow: 0 8px 24px rgba(248, 113, 22, 0.45);
   transition: all 0.3s;
   display: flex;
   align-items: center;
@@ -452,7 +452,7 @@
     width: 100px;
     height: 100px;
     font-size: 40px;
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.35);
+    box-shadow: 0 6px 20px rgba(248, 113, 22, 0.4);
   }
 
   .mic-button:active:not(:disabled) {
