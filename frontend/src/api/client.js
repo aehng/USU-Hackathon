@@ -15,7 +15,16 @@ async function fetchJson(url, options = {}) {
   }
 
   if (!response.ok) {
-    throw new Error(`Request failed (${response.status}) for ${url}`);
+    let errorDetail = `Request failed (${response.status})`;
+    try {
+      const errorJson = await response.json();
+      if (errorJson.detail) {
+        errorDetail = errorJson.detail;
+      }
+    } catch (e) {
+      // If response isn't JSON, use default message
+    }
+    throw new Error(errorDetail);
   }
 
   return response.json();
