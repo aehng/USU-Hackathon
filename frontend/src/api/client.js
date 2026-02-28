@@ -62,9 +62,13 @@ export async function quickLog(transcript) {
   return response;
 }
 
-// Guided log - start with voice input, get follow-up questions
+// Guided log - start conversation with initial transcript
 export async function guidedLogStart(transcript) {
-  return fetchJson(`${API_BASE_URL}/api/log/guided/start`, {
+  console.log('🚀 guidedLogStart called with transcript:', transcript);
+  const url = `${API_BASE_URL}/guided-log/start`;
+  console.log('🌐 Making request to:', url);
+  
+  const response = await fetchJson(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -72,19 +76,49 @@ export async function guidedLogStart(transcript) {
       transcript: transcript
     })
   });
+  
+  console.log('✅ guidedLogStart response:', response);
+  return response;
 }
 
-// Guided log - finalize with answers to follow-up questions
-export async function guidedLogFinalize(extractedState, answers) {
-  return fetchJson(`${API_BASE_URL}/api/log/guided/finalize`, {
+// Guided log - respond to a follow-up question
+export async function guidedLogRespond(sessionId, answer) {
+  console.log('🚀 guidedLogRespond called:', { sessionId, answer });
+  const url = `${API_BASE_URL}/guided-log/respond`;
+  console.log('🌐 Making request to:', url);
+  
+  const response = await fetchJson(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      session_id: sessionId,
+      answer: answer
+    })
+  });
+  
+  console.log('✅ guidedLogRespond response:', response);
+  return response;
+}
+
+// Guided log - save completed guided log to database
+export async function guidedLogSave(extractedData) {
+  console.log('🚀 guidedLogSave called:', extractedData);
+  const url = `${API_BASE_URL}/api/log/quick`;
+  console.log('🌐 Saving guided log data to:', url);
+  
+  // Reuse quick log endpoint to save the extracted data
+  const response = await fetchJson(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       user_id: DEMO_USER_ID,
-      extracted_state: extractedState,
-      answers: answers
+      // Send as pre-extracted data
+      ...extractedData
     })
   });
+  
+  console.log('✅ guidedLogSave response:', response);
+  return response;
 }
 
 // Get dashboard insights

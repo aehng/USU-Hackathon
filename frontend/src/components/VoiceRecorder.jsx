@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import { RefreshContext } from '../context/RefreshContext';
-import { quickLog, guidedLogStart, guidedLogFinalize } from '../api/client';
+import { quickLog, guidedLogStart, guidedLogRespond, guidedLogSave } from '../api/client';
 import './VoiceRecorder.css';
 
 function VoiceRecorder({ mode }) {
@@ -14,7 +14,6 @@ function VoiceRecorder({ mode }) {
   
   // Guided mode state
   const [guidedState, setGuidedState] = useState(null);
-  const [currentQuestion, setCurrentQuestion] = useState(0);
   const [answers, setAnswers] = useState([]);
   
   const recognitionRef = useRef(null);
@@ -236,16 +235,17 @@ function VoiceRecorder({ mode }) {
     setIsLoading(true);
     setError(null);
 
-    try {
+    try:
       if (mode === 'quick') {
         const response = await quickLog(transcript);
         setResult(response);
         triggerRefresh(); // Trigger refresh for dashboard/history
       } else {
         // Guided mode
+        console.log('🎯 Starting guided log...');
         const response = await guidedLogStart(transcript);
+        console.log('✨ Got guided response:', response);
         setGuidedState(response);
-        setCurrentQuestion(0);
         setAnswers([]);
       }
     } catch (err) {
@@ -275,25 +275,38 @@ function VoiceRecorder({ mode }) {
   };
 
   const handleGuidedAnswer = async (answer) => {
-    const newAnswers = [...answers, answer];
-    setAnswers(newAnswers);
+    if (!answer.trim()) {
+      setError('Please provide an answer');
+      return;
+    }
 
-    if (currentQuestion < guidedState.questions.length - 1) {
-      setCurrentQuestion(prev => prev + 1);
-    } else {
-      // All questions answered, finalize
-      setIsLoading(true);
-      try {
-        const response = await guidedLogFinalize(guidedState.extracted_state, newAnswers);
-        setResult(response);
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Send answer to backend and get next state
+      const response = await guidedLogRespond(guidedState.session_id, answer);
+      
+      console.log('📝 Guided response:', response);
+      
+      // Check if conversation is complete
+      if (response.is_complete) {
+        // Save the extracted data to database
+        const saveResponse = await guidedLogSave(response.extracted_data);
+        setResult(saveResponse);
         setGuidedState(null);
-        triggerRefresh(); // Trigger refresh for dashboard/history
-      } catch (err) {
-        console.error('Guided finalize failed:', err);
-        setError(err.message || 'Failed to finalize log. Please try again.');
-      } finally {
-        setIsLoading(false);
+        setAnswers([]);
+        triggerRefresh(); // Refresh dashboard
+      } else {
+        // More questions to answer - update state
+        setGuidedState(response);
+        setAnswers([...answers, { question: guidedState.question, answer }]);
       }
+    } catch (err) {
+      console.error('Guided answer failed:', err);
+      setError(err.message || 'Failed to process your answer. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -302,7 +315,6 @@ function VoiceRecorder({ mode }) {
     setResult(null);
     setError(null);
     setGuidedState(null);
-    setCurrentQuestion(0);
     setAnswers([]);
   };
 
@@ -339,22 +351,57 @@ function VoiceRecorder({ mode }) {
 
   // Guided mode - showing questions
   if (guidedState && !result) {
-    const question = guidedState.questions[currentQuestion];
     return (
       <div className="voice-recorder guided">
-        <h3>Follow-up Question {currentQuestion + 1}/{guidedState.questions.length}</h3>
-        <p className="question">{question}</p>
-        <input
-          type="text"
-          placeholder="Type your answer..."
-          onKeyPress={(e) => {
-            if (e.key === 'Enter' && e.target.value.trim()) {
-              handleGuidedAnswer(e.target.value.trim());
-              e.target.value = '';
-            }
-          }}
-        />
-        <p className="hint">Press Enter to submit</p>
+        {isLoading ? (
+          <div className="loading">
+            <div className="spinner"></div>
+            <p>Processing your answer...</p>
+          </div>
+        ) : (
+          <>
+            {/* Show conversation history */}
+            {answers.length > 0 && (
+              <div className="conversation-history">
+                {answers.map((qa, idx) => (
+                  <div key={idx} className="conversation-item">
+                    <div className="assistant-message">
+                      <strong>Assistant:</strong> {qa.question}
+                    </div>
+                    <div className="user-message">
+                      <strong>You:</strong> {qa.answer}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Current question */}
+            <div className="current-question">
+              <h3>{answers.length === 0 ? 'Follow-up' : `Question ${answers.length + 1}`}</h3>
+              <p className="question">{guidedState.question}</p>
+              
+              {error && (
+                <div className="error-message">
+                  <p>{error}</p>
+                </div>
+              )}
+              
+              <input
+                type="text"
+                placeholder="Type your answer..."
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter' && e.target.value.trim()) {
+                    handleGuidedAnswer(e.target.value.trim());
+                    e.target.value = '';
+                  }
+                }}
+                autoFocus
+              />
+              <p className="hint">Press Enter to submit</p>
+            </div>
+          </>
+        )}
       </div>
     );
   }
