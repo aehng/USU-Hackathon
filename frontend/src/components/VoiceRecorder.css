@@ -354,21 +354,173 @@
 @media (max-width: 480px) {
   .voice-recorder {
     padding: 20px;
-    min-height: 350px;
-  }
-  
-  .mic-button {
-    width: 100px;
-    height: 100px;
-    font-size: 40px;
+    min-height: 100vh;
+    border-radius: 0;
   }
   
   .instructions {
     font-size: 16px;
+    margin-bottom: 32px;
   }
-  
+
+  .mic-button {
+    width: 100px;
+    height: 100px;
+    font-size: 40px;
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.35);
+  }
+
+  .mic-button:active:not(:disabled) {
+    transform: scale(0.92);
+  }
+
+  .stop-button {
+    padding: 18px 40px;
+    font-size: 16px;
+    border-radius: 10px;
+  }
+
   .live-transcript {
     font-size: 14px;
     padding: 16px;
+    min-height: 120px;
+    max-height: 300px;
+  }
+
+  .recording-indicator {
+    font-size: 16px;
+    gap: 10px;
+  }
+
+  .recording-warning {
+    font-size: 14px;
+    padding: 10px;
+  }
+
+  .recorder-active {
+    gap: 16px;
+  }
+
+  .submit-button {
+    width: 100%;
+    padding: 16px;
+    font-size: 16px;
+    margin-top: 12px;
+  }
+
+  .transcript-preview {
+    margin-top: 16px;
+    padding: 12px;
+  }
+
+  .transcript-preview p {
+    font-size: 14px;
+  }
+
+  .typed-input {
+    gap: 10px;
+  }
+
+  .typed-input textarea {
+    min-height: 120px;
+    padding: 14px;
+    font-size: 16px;
+  }
+
+  .typed-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .typed-actions button {
+    width: 100%;
+    padding: 14px;
+  }
+
+  .cancel-button {
+    width: 100%;
+    padding: 14px;
+    margin-top: 0;
+  }
+
+  .error-message {
+    padding: 16px;
+    margin-bottom: 20px;
+  }
+
+  .error-message p {
+    font-size: 14px;
+  }
+
+  .error-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .error-actions button {
+    width: 100%;
+    padding: 12px;
+    font-size: 14px;
+  }
+
+  .voice-recorder.success {
+    min-height: 100vh;
+  }
+
+  .success-message h2 {
+    font-size: 28px;
+  }
+
+  .result-summary {
+    padding: 16px;
+  }
+
+  .result-item {
+    font-size: 15px;
+    margin-bottom: 10px;
+  }
+
+  .reset-button {
+    width: 100%;
+    padding: 14px;
+    font-size: 15px;
+  }
+
+  .voice-recorder.guided h3 {
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+
+  .question {
+    font-size: 16px;
+    margin-bottom: 20px;
+  }
+
+  .voice-recorder.guided input {
+    padding: 14px;
+    font-size: 16px;
+  }
+
+  .hint {
+    font-size: 12px;
+  }
+
+  .loading {
+    min-height: 200px;
+  }
+
+  .spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #e0e0e0;
+  }
+
+  .mode-toggle {
+    margin-bottom: 20px;
+  }
+
+  .navbar button {
+    padding: 12px 16px;
+    font-size: 14px;
   }
 }
