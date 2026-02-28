@@ -519,6 +519,59 @@ function VoiceRecorder({ mode }) {
           </button>
         </div>
       )}
+        </>
+      )}
+
+      {/* Type Mode */}
+      {inputMethod === 'type' && (
+        <div className="type-mode-container">
+          {error && (
+            <div className="error-message">
+              <p>{error}</p>
+              <div className="error-actions">
+                <button onClick={() => setError(null)}>Dismiss</button>
+              </div>
+            </div>
+          )}
+
+          {!isLoading && !error && (
+            <div className="type-instructions">
+              <p>
+                {mode === 'quick' 
+                  ? 'Type your symptoms. Be as detailed as you\'d like.'
+                  : 'Type your symptoms. We\'ll ask follow-up questions after.'}
+              </p>
+            </div>
+          )}
+
+          {isLoading && (
+            <div className="loading">
+              <div className="spinner"></div>
+              <p>Processing your log...</p>
+            </div>
+          )}
+
+          {!isLoading && (
+            <textarea
+              className="text-input-area"
+              value={manualText}
+              onChange={(e) => setManualText(e.target.value)}
+              placeholder="Example: I've had a headache since lunch, severity 7 out of 10, maybe from too much coffee"
+              rows={6}
+            />
+          )}
+
+          <div className="type-actions">
+            <button 
+              className="submit-button" 
+              onClick={handleSubmitTyped}
+              disabled={!manualText.trim() || isLoading}
+            >
+              Submit
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
