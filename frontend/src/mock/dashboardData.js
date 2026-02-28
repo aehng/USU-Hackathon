@@ -29,6 +29,15 @@ export const MOCK_INSIGHTS = {
     body: "Based on your recent logs (caffeine yesterday, low sleep), you may be at higher risk for a headache today.",
     riskLevel: "medium", // "low" | "medium" | "high"
   },
+  // Direct LLM-generated advice / diagnosis-style guidance
+  advice: {
+    title: "What your pattern suggests",
+    body:
+      "Your logs suggest a strong link between caffeine and next-day migraines, amplified when you also report poor sleep. " +
+      "Try limiting caffeine after 2pm and improving sleep hygiene for two weeks, then check if your average severity drops.",
+    disclaimer:
+      "This is not a medical diagnosis. If symptoms worsen, change, or worry you, talk to a licensed clinician.",
+  },
   message: null,
 };
 
@@ -88,12 +97,23 @@ export const MOCK_STATS = {
     { symptom: "Joint pain", day: "Monday", time_of_day: "evening", value: 2 },
     { symptom: "Joint pain", day: "Saturday", time_of_day: "afternoon", value: 3 },
   ],
+  // Activity × symptom correlation (used for confidence table)
+  activity_symptom_correlations: [
+    { activity: "Caffeine", symptom: "Headache", confidence: 0.85, sample_size: 14 },
+    { activity: "Caffeine", symptom: "Fatigue", confidence: 0.42, sample_size: 10 },
+    { activity: "Poor sleep", symptom: "Fatigue", confidence: 0.88, sample_size: 18 },
+    { activity: "Poor sleep", symptom: "Headache", confidence: 0.61, sample_size: 15 },
+    { activity: "Stressful day", symptom: "Stomach ache", confidence: 0.69, sample_size: 11 },
+    { activity: "Alcohol", symptom: "Headache", confidence: 0.9, sample_size: 9 },
+    { activity: "Skipped meals", symptom: "Stomach ache", confidence: 0.74, sample_size: 8 },
+  ],
 };
 
 /** "Not enough data" response shape for testing empty state */
 export const NOT_ENOUGH_DATA_INSIGHTS = {
   insights: [],
   prediction: null,
+  advice: null,
   message: "Not enough data yet. Keep logging to unlock insights!",
 };
 
@@ -104,4 +124,5 @@ export const NOT_ENOUGH_DATA_STATS = {
   severity_trends: [],
   symptom_frequency: [],
   symptom_temporal_heatmap: [],
+  activity_symptom_correlations: [],
 };

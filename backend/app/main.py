@@ -15,6 +15,11 @@ from validate_voicehealth_json_py import validate_voicehealth_json_py
 
 app = FastAPI(title="VoiceHealth Tracker API")
 
+# Enable CORS for frontend
+# Note: when running behind Cloudflare tunnels, the frontend will talk to
+# `https://flairup.dpdns.org` and the LLM adapter is reachable at
+# `https://llm.flairup.dpdns.org`.  These are the defaults for
+# LLM_SERVER_URL and normal API traffic.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # In production, specify exact origins
@@ -30,6 +35,7 @@ def call_llm(payload: dict):
     llm_base = os.getenv("LLM_SERVER_URL", "https://llm.flairup.dpdns.org").rstrip('/')
     llm_endpoint = f"{llm_base}/generate"
     try:
+        # Timeout for smaller models (1.7B-4B are ~10-30s, 8B+ can take 30-90s)
         resp = requests.post(llm_endpoint, json={"input": payload}, timeout=60)
         resp.raise_for_status()
         return resp.json()
@@ -86,7 +92,14 @@ def health_check():
 
 @app.post("/api/log/quick")
 async def quick_log(request: Request):
-    """Processes a single quick log, validates via Max's filter, and saves to DB."""
+    """
+    Forward incoming quick-log request to the LLM server, validate via Max's filter, 
+    and save result to DB.
+
+    The request JSON should include at least `user_id` and `transcript`.
+    After forwarding to the LLM adapter, the returned JSON is expected to
+    contain the extracted fields (symptoms, severity, etc.).
+    """
     body = await request.json()
     user_id = body.get("user_id")
     transcript = body.get("transcript")

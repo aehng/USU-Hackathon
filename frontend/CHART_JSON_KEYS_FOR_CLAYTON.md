@@ -87,7 +87,29 @@ Max’s dashboard charts expect these **exact** keys. Map your analysis output t
 
 ---
 
-## 5. Root-level keys on stats response
+## 5. Activity ↔ symptom correlation (table)
+
+**Top-level key:** `activity_symptom_correlations`  
+**Type:** array of objects. Each row feeds the \"Activity ↔ symptom correlation\" table on the dashboard.
+
+| Key           | Type   | Notes                          |
+|---------------|--------|--------------------------------|
+| `activity`    | string | Activity/trigger label         |
+| `symptom`     | string | Symptom name                   |
+| `confidence`  | number | 0–1 (e.g. 0.85 → 85% confidence)|
+| `sample_size` | number | How many entries back this up  |
+
+**Example:**
+```json
+"activity_symptom_correlations": [
+  { "activity": "Caffeine", "symptom": "Headache", "confidence": 0.85, "sample_size": 14 },
+  { "activity": "Poor sleep", "symptom": "Fatigue", "confidence": 0.88, "sample_size": 18 }
+]
+```
+
+---
+
+## 6. Root-level keys on stats response
 
 The dashboard also reads these on the stats payload:
 
@@ -103,6 +125,7 @@ The dashboard also reads these on the stats payload:
 - **severity_trends** → `[{ "date", "severity" }, ...]`
 - **trigger_correlations** → `[{ "name", "value" }, ...]`
 - **symptom_temporal_heatmap** → `[{ "symptom", "day", "time_of_day", "value" }, ...]` (day × time heatmap, symptom dropdown)
+- **activity_symptom_correlations** → `[{ "activity", "symptom", "confidence", "sample_size" }, ...]` (correlation table)
 - **symptom_frequency** → `[{ "name", "value" }, ...]`
 
 Spelling and key names must match exactly or the charts will be empty.
