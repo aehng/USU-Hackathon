@@ -6,6 +6,7 @@ import os
 import requests
 import logging
 import traceback
+from uuid import UUID
 
 # database imports
 from database import SessionLocal
@@ -52,6 +53,12 @@ async def quick_log(request: Request):
         body = await request.json()
         user_id = body.get("user_id")
         transcript = body.get("transcript")
+
+        if user_id:
+            try:
+                UUID(str(user_id))
+            except ValueError:
+                raise HTTPException(status_code=400, detail="user_id must be a valid UUID")
 
         # default location for the LLM adapter via Cloudflare tunnel
         # use HTTPS so TLS is terminated by the tunnel
@@ -104,6 +111,8 @@ async def quick_log(request: Request):
             db.close()
 
         return {"status": "success", "entry_id": str(entry_id), "llm_response": llm_json}
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Unhandled exception in quick_log: {e}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
