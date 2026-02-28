@@ -50,7 +50,8 @@ async def quick_log(request: Request):
     llm_base = os.getenv("LLM_SERVER_URL", "https://llm.flairup.dpdns.org")
     llm_endpoint = f"{llm_base.rstrip('/')}/generate"
     try:
-        resp = requests.post(llm_endpoint, json={"input": body}, timeout=15)
+        # Increased timeout for larger models like Qwen3-8B (can take 30-60s on first inference)
+        resp = requests.post(llm_endpoint, json={"input": body}, timeout=90)
         resp.raise_for_status()
         llm_json = resp.json()
     except requests.RequestException as exc:
