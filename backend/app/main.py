@@ -1,6 +1,12 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
+import os
+import requests
+
+# database imports
+from database import SessionLocal
+from models.models import Entry, User
 
 app = FastAPI(title="VoiceHealth Tracker API")
 
@@ -23,16 +29,61 @@ def health_check():
 
 # Placeholder routes - Noah will implement these
 @app.post("/api/log/quick")
-def quick_log(data: dict):
-    """Placeholder for quick log endpoint"""
-    return {
-        "status": "success",
-        "message": "Quick log placeholder - Noah will implement",
-        "symptoms": ["headache"],
-        "severity": 7,
-        "potential_triggers": ["stress"],
-        "data_received": data
-    }
+async def quick_log(request: Request):
+    """Forward incoming quick-log request to the LLM server, save result to DB.
+
+    The request JSON should include at least ``user_id`` and ``transcript``.
+    After forwarding to the LLM adapter, the returned JSON is expected to
+    contain the extracted fields (symptoms, severity, etc.). We persist an
+    ``Entry`` record using those values.
+    """
+    body = await request.json()
+    user_id = body.get("user_id")
+    transcript = body.get("transcript")
+
+    llm_base = os.getenv("LLM_SERVER_URL", "http://llm.flairup.dpdns.org")
+    llm_endpoint = f"{llm_base.rstrip('/')}/generate"
+    try:
+        resp = requests.post(llm_endpoint, json={"input": body}, timeout=15)
+        resp.raise_for_status()
+        llm_json = resp.json()
+    except requests.RequestException as exc:
+        raise HTTPException(status_code=502, detail=f"LLM request failed: {exc}")
+    except ValueError:
+        raise HTTPException(status_code=502, detail="LLM returned non-JSON response")
+
+    # record entry in database
+    db = SessionLocal()
+    entry_id = None
+    try:
+        if user_id:
+            # ensure user exists
+            existing = db.query(User).get(user_id)
+            if not existing:
+                new_user = User(id=user_id)
+                db.add(new_user)
+                db.commit()
+        entry = Entry(
+            user_id=user_id,
+            raw_transcript=transcript,
+            symptoms=llm_json.get("symptoms"),
+            severity=llm_json.get("severity"),
+            potential_triggers=llm_json.get("potential_triggers"),
+            mood=llm_json.get("mood"),
+            body_location=llm_json.get("body_location"),
+            time_context=llm_json.get("time_context"),
+            notes=llm_json.get("notes"),
+        )
+        db.add(entry)
+        db.commit()
+        entry_id = entry.id
+    except Exception as db_exc:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error: {db_exc}")
+    finally:
+        db.close()
+
+    return {"status": "success", "entry_id": str(entry_id), "llm_response": llm_json}
 
 @app.post("/api/log/guided/start")
 def guided_log_start(data: dict):
