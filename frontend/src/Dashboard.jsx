@@ -16,15 +16,17 @@ import {
 } from "./mock/dashboardData.js";
 // --- ADD THIS RIGHT ABOVE YOUR DASHBOARD COMPONENT ---
 const CustomTooltip = ({ active, payload, label }) => {
-  if (active && payload && payload.length) {
+  if (active && payload && payload.length > 0) {
+    // Safely grab the value whether Recharts puts it in .value or nests it in .payload
+    const severityValue = payload[0].value !== undefined 
+      ? payload[0].value 
+      : payload[0].payload.severity;
+
     return (
       <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-lg">
-        {/* Shows the Date (the X-axis label) */}
         <p className="mb-1 text-sm font-bold text-slate-900">Date: {label}</p>
-        
-        {/* Shows the Severity Value */}
         <p className="text-sm font-medium text-sky-600">
-          Severity: <span className="text-base font-bold">{payload[0].value}</span> / 10
+          Severity: <span className="text-base font-bold">{severityValue}</span> / 10
         </p>
       </div>
     );
