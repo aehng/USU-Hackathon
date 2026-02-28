@@ -6,37 +6,21 @@ from openai import OpenAI
 from pydantic import BaseModel
 from typing import List, Optional
 
-app = FastAPI(title="Lemonade Adapter with Strict JSON Validation")
+app = FastAPI(title="Lemonade Symptom Extraction Adapter")
 
 # ============================================================================
 # PYDANTIC MODELS - Define strict response schema
 # ============================================================================
 
-class TriggerCorrelation(BaseModel):
-    name: str
-    value: int
-
-class TemporalPattern(BaseModel):
-    symptom: str
-    peak_day: Optional[str]
-    peak_time: str
-    frequency: int
-
-class SeverityTrend(BaseModel):
-    date: str
-    severity: float
-
-class SymptomFrequency(BaseModel):
-    name: str
-    value: int
-
-class HealthTrackingData(BaseModel):
-    trigger_correlations: List[TriggerCorrelation]
-    temporal_patterns: List[TemporalPattern]
-    severity_trends: List[SeverityTrend]
-    symptom_frequency: List[SymptomFrequency]
-    total_entries: int
-    date_range_days: int
+class SymptomExtraction(BaseModel):
+    """Schema for extracting symptoms from a single voice/text log entry."""
+    symptoms: List[str]  # e.g., ["headache", "nausea", "dizziness"]
+    severity: int  # 1-10 scale
+    potential_triggers: List[str]  # e.g., ["stress", "caffeine", "lack of sleep"]
+    mood: Optional[str] = None  # e.g., "anxious", "tired", "fine"
+    body_location: Optional[str] = None  # e.g., "head", "stomach", "chest"
+    time_context: Optional[str] = None  # e.g., "since morning", "for 2 hours", "all day"
+    notes: Optional[str] = None  # Any additional context
 
 # ============================================================================
 # CONFIGURATION
@@ -55,57 +39,54 @@ client = OpenAI(
 
 @app.post("/generate")
 async def generate(request: Request):
-    """Forward requests to Lemonade using OpenAI .parse() for strict JSON schema.
+    """Extract symptoms from voice/text transcript using LLM.
 
     Expected input JSON:
-      { "input": <data>, "prompt": "optional prompt" }
+      { 
+        "input": {
+          "user_id": "demo-user-001",
+          "transcript": "I've had a terrible headache since this morning..."
+        }
+      }
 
-    Uses Pydantic models to enforce strict response validation. The LLM must
-    produce JSON that matches the HealthTrackingData schema exactly.
+    Returns extracted symptom data matching the Entry model schema.
     """
     try:
         payload = await request.json()
     except Exception:
         raise HTTPException(status_code=400, detail="invalid json body")
 
-    # Extract fields
-    input_data = None
-    prompt = (
-        "You are a precise data extraction engine. Analyze the user's input "
-        "and extract the required health tracking metrics exactly as defined. "
-        "Ensure all dates are in YYYY-MM-DD format."
+    # Extract transcript from nested input structure
+    input_data = payload.get("input", {})
+    transcript = input_data.get("transcript", "")
+    
+    if not transcript:
+        raise HTTPException(status_code=400, detail="transcript field is required")
+
+    # System prompt for symptom extraction
+    system_prompt = (
+        "You are a medical symptom extraction assistant. Extract health information "
+        "from the user's description. Be precise and conservative - only extract "
+        "information explicitly stated. Return severity as an integer 1-10."
     )
-    if isinstance(payload, dict):
-        input_data = payload.get("input", payload)
-        prompt = payload.get("prompt", prompt)
-    else:
-        input_data = payload
-
-    # Serialize input data
-    try:
-        data_blob = json.dumps(input_data)
-    except Exception:
-        data_blob = str(input_data)
-
-    user_content = f"{prompt}\n\nDATA:\n{data_blob}"
+    
+    user_content = (
+        f"Extract symptoms, severity, triggers, mood, body location, time context, "
+        f"and any other relevant notes from this description:\n\n{transcript}"
+    )
 
     try:
         # Use .parse() for strict schema validation
         response = client.beta.chat.completions.parse(
             model=MODEL,
-            response_format=HealthTrackingData,
+            response_format=SymptomExtraction,
             messages=[
-                {
-                    "role": "system",
-                    "content": prompt
-                },
-                {
-                    "role": "user",
-                    "content": user_content
-                }
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_content}
             ],
             temperature=0.0,
         )
+        
         # .parsed returns the validated Pydantic object
         parsed_obj = response.choices[0].message.parsed
         return json.loads(parsed_obj.model_dump_json())
@@ -113,7 +94,7 @@ async def generate(request: Request):
     except Exception as exc:
         raise HTTPException(
             status_code=502,
-            detail=f"Lemonade parse request failed: {str(exc)}"
+            detail=f"LLM extraction failed: {str(exc)}"
         )
 
 
