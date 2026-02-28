@@ -11,6 +11,8 @@ import json
 import uuid
 from typing import Dict, List
 from validate_voicehealth_json_py import sanitize_voicehealth_data
+import json
+from models.models import Entry, User
 
 # database imports
 from database import SessionLocal
@@ -428,70 +430,74 @@ async def guided_log_finalize_legacy(request: Request):
 
 @app.get("/api/insights/{user_id}")
 def get_insights(user_id: str):
-    """Get insights and analysis for a user, formatted for React InsightCards"""
+    """Get dynamic AI insights and analysis for a user"""
     db = SessionLocal()
     try:
-        entries = db.query(Entry).filter(Entry.user_id == user_id).all()
+        # 1. Get all entries to calculate stats
+        entries = db.query(Entry).filter(Entry.user_id == user_id).order_by(Entry.logged_at.desc()).all()
         if not entries:
             return {
                 "status": "success",
-                "message": "Not enough data yet. Log more entries to see patterns.",
+                "message": "Not enough data yet. Log more entries to see AI patterns.",
                 "user_id": user_id,
                 "insights": []
             }
         
-        # 1. Calculate symptom frequencies
+        current_entry_count = len(entries)
+        
+        # Calculate basic formatting for the InsightCards
         symptom_counts = {}
         for entry in entries:
             if entry.symptoms:
                 for sym in (entry.symptoms if isinstance(entry.symptoms, list) else [entry.symptoms]):
                     symptom_counts[sym] = symptom_counts.get(sym, 0) + 1
                     
-        # Find the top symptom for our text body
         top_symptoms = sorted(symptom_counts.items(), key=lambda x: x[1], reverse=True)
         symptom_body = f"Your most frequent symptom is '{top_symptoms[0][0]}'." if top_symptoms else "No specific symptoms detected yet."
-        
-        # 2. Calculate average severity
         avg_severity = sum(e.severity for e in entries if e.severity) / len([e for e in entries if e.severity]) if any(e.severity for e in entries) else 0
-        
-        # 3. Format the data exactly how Dashboard.jsx expects it
+
         formatted_insights = [
-            {
-                "id": "1",
-                "title": "Tracking Consistency",
-                "body": f"You have logged {len(entries)} entries so far. Great job keeping track!",
-                "icon": "activity"
-            },
-            {
-                "id": "2",
-                "title": "Severity Average",
-                "body": f"Your average symptom severity is {avg_severity:.1f} out of 10.",
-                "icon": "trend"
-            },
-            {
-                "id": "3",
-                "title": "Top Symptoms",
-                "body": symptom_body,
-                "icon": "alert"
-            }
+            {"id": "1", "title": "Tracking Consistency", "body": f"You have logged {current_entry_count} entries so far.", "icon": "activity"},
+            {"id": "2", "title": "Severity Average", "body": f"Your average symptom severity is {avg_severity:.1f}/10.", "icon": "trend"},
+            {"id": "3", "title": "Top Symptoms", "body": symptom_body, "icon": "alert"}
         ]
-        
+
+        # 2. Build the payload for the Lemonade LLM Server
+        # We pass the recent stats so the LLM has context to generate personalized advice
+        recent_entries = entries[:5]
+        llm_payload = {
+            "mode": "generate_insights",
+            "user_id": user_id,
+            "context": {
+                "total_entries": current_entry_count,
+                "average_severity": round(avg_severity, 1),
+                "recent_symptoms": [s[0] for s in top_symptoms[:3]],
+                "latest_notes": recent_entries[0].raw_transcript if recent_entries else ""
+            },
+            "prompt": "Based on the user's recent health data, provide a short prediction and medical advice. Return ONLY valid JSON with two objects: 'prediction' (keys: title, body, riskLevel) and 'advice' (keys: title, body, disclaimer)."
+        }
+
+        # 3. Call the LLM
+        # (If you want to use the cache table later, wrap this call in an if-statement!)
+        try:
+            llm_response = call_llm(llm_payload)
+        except Exception as llm_error:
+            logger.error(f"LLM Insight Generation Failed: {llm_error}")
+            # Safe fallback so the dashboard doesn't crash if the LLM times out
+            llm_response = {
+                "prediction": {"title": "AI Offline", "body": "Unable to reach the AI server for predictions.", "riskLevel": "unknown"},
+                "advice": {"title": "AI Offline", "body": "Please try again in a few moments.", "disclaimer": "Connection error."}
+            }
+
+        # 4. Return the combined data to React
         return {
             "status": "success",
             "user_id": user_id,
             "insights": formatted_insights,
-            # Supplying prediction and advice to activate the PredictionCard and AdviceCard
-            "prediction": {
-                "title": "Flare-up Risk",
-                "body": "Based on your recent severity trends, your risk of a flare-up is moderate today. Take it easy.",
-                "riskLevel": "moderate"
-            },
-            "advice": {
-                "title": "Rest Recommended",
-                "body": "Consider resting your voice and staying hydrated based on your most recent symptom logs.",
-                "disclaimer": "This is AI-generated guidance, not medical advice."
-            }
+            "prediction": llm_response.get("prediction", {}),
+            "advice": llm_response.get("advice", {})
         }
+        
     except Exception as e:
         logger.error(f"Error getting insights: {e}\n{traceback.format_exc()}")
         return {"status": "error", "message": str(e)}
