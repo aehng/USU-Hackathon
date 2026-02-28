@@ -43,6 +43,97 @@ app.add_middleware(
 # In-memory conversation storage for guided log sessions
 guided_sessions: Dict[str, List[Dict]] = {}
 
+# Canonical trigger vocabulary to reduce inconsistent labels across logs.
+CANONICAL_TRIGGER_LIST = [
+    "stress",
+    "anxiety",
+    "lack of sleep",
+    "caffeine",
+    "alcohol",
+    "dehydration",
+    "dairy",
+    "gluten",
+    "sugar",
+    "spicy food",
+    "processed food",
+    "allergens",
+    "weather change",
+    "air quality",
+    "hormonal changes",
+    "illness",
+    "medication",
+    "exercise",
+    "overexertion",
+    "injury",
+    "screen time",
+    "bright lights",
+    "loud noise",
+]
+
+TRIGGER_ALIAS_TO_CANONICAL = {
+    "stressful experience": "stress",
+    "stressful situation": "stress",
+    "work stress": "stress",
+    "anxious": "anxiety",
+    "worry": "anxiety",
+    "poor sleep": "lack of sleep",
+    "insomnia": "lack of sleep",
+    "coffee": "caffeine",
+    "energy drink": "caffeine",
+    "tea": "caffeine",
+    "milk": "dairy",
+    "cheese": "dairy",
+    "bread": "gluten",
+    "pollen": "allergens",
+    "dust": "allergens",
+    "pollution": "air quality",
+    "humid weather": "weather change",
+    "period": "hormonal changes",
+    "menstrual cycle": "hormonal changes",
+    "workout": "exercise",
+    "heavy exercise": "overexertion",
+    "phone": "screen time",
+    "computer": "screen time",
+    "noise": "loud noise",
+}
+
+
+def normalize_triggers(potential_triggers: list) -> list:
+    if not isinstance(potential_triggers, list):
+        return []
+
+    normalized: list[str] = []
+    seen: set[str] = set()
+    canonical_lookup = {name.lower(): name for name in CANONICAL_TRIGGER_LIST}
+
+    for trigger in potential_triggers:
+        if not isinstance(trigger, str):
+            continue
+        raw = trigger.strip()
+        if not raw:
+            continue
+
+        lower = raw.lower()
+        canonical = TRIGGER_ALIAS_TO_CANONICAL.get(lower)
+
+        if canonical is None and lower in canonical_lookup:
+            canonical = canonical_lookup[lower]
+
+        if canonical is None:
+            for alias, mapped in TRIGGER_ALIAS_TO_CANONICAL.items():
+                if alias in lower or lower in alias:
+                    canonical = mapped
+                    break
+
+        if canonical is None:
+            canonical = raw
+
+        if canonical not in seen:
+            seen.add(canonical)
+            normalized.append(canonical)
+
+    return normalized
+
 # --- HELPER FUNCTIONS ---
 
 def call_llm(payload: dict):
@@ -224,12 +315,29 @@ async def transcribe_audio(audio: UploadFile = File(...)):
 @app.post("/api/log/quick")
 async def quick_log(request: Request):
     """
-    Forward incoming quick-log request to the LLM server, validate via Max's filter, 
-    and save result to DB.
+    Extract structured health data from the following user log.
 
-    The request JSON should include at least `user_id` and `transcript`.
-    After forwarding to the LLM adapter, the returned JSON is expected to
-    contain the extracted fields (symptoms, severity, cause/triggers, time etc.).
+    Requirements:
+    - Identify and list all symptoms mentioned.
+    - Identify and list the underlying/root cause(s) or potential triggers for each symptom (e.g., if the user drank coffee, return "caffeine" as the trigger, not just "coffee").
+    - Extract severity (1-10), time context, mood, body location, and any relevant notes if present.
+    - Return a JSON object with these fields: symptoms (list), severity (integer 1-10), potential_triggers (list), time_context (string), mood (string), body_location (list), notes (string).
+    - Only include fields that are present or can be reasonably inferred.
+
+    Example:
+    User log: "I have a headache and I drank coffee earlier."
+    Return:
+    {
+        "symptoms": ["headache"],
+        "severity": 5,
+        "potential_triggers": ["caffeine"],
+        "time_context": "",
+        "mood": "",
+        "body_location": [],
+        "notes": ""
+    }
+
+    Focus on extracting the most fundamental triggers, not just surface-level causes.
     """
     try:
         body = await request.json()
@@ -239,10 +347,20 @@ async def quick_log(request: Request):
         if not transcript:
             raise HTTPException(status_code=400, detail="Missing transcript")
 
-        llm_json = call_llm(body)
+        llm_payload = {
+            **body,
+            "trigger_reference": CANONICAL_TRIGGER_LIST,
+            "extraction_rules": (
+                "Extract root-cause triggers and prefer canonical trigger names from trigger_reference. "
+                "If user says coffee/tea/energy drink map to caffeine; "
+                "stressful situation maps to stress."
+            ),
+        }
+        llm_json = call_llm(llm_payload)
         
         # Sanitize LLM output to fix common issues (e.g., severity=0)
         llm_json = sanitize_llm_data(llm_json)
+        llm_json["potential_triggers"] = normalize_triggers(llm_json.get("potential_triggers", []))
 
         llm_json_str = json.dumps(llm_json)
         is_valid, error_msg = validate_voicehealth_json_py(llm_json_str)
@@ -369,12 +487,9 @@ async def guided_log_respond(request: Request):
         if user_message_count == 2:  # Just got second user message (initial + first answer)
             # After severity, ask about triggers
             guided_sessions[session_id][0]["content"] = (
-                "You are a helpful health assistant. Ask about what might have caused or triggered the symptoms.\\n\\n"
-                "Ask about:\\n"
-                "- Recent activities or injuries\\n"
-                "- Foods they ate\\n"
-                "- Stress or emotional state\\n"
-                "- Environmental factors\\n\\n"
+                "You are a helpful health assistant. Ask one focused follow-up to find ROOT cause triggers.\\n\\n"
+                f"Prefer these canonical trigger categories: {', '.join(CANONICAL_TRIGGER_LIST)}\\n\\n"
+                "Ask about ONE area only (food/drink, stress-emotion, environment, activity/injury, sleep).\\n"
                 "Keep the question under 15 words."
             )
         elif user_message_count == 3:  # Got trigger answer, now allow completion
@@ -383,6 +498,8 @@ async def guided_log_respond(request: Request):
                 "Respond with EXACTLY this format (no extra text):\\n"
                 'COMPLETE:{"symptoms": ["symptom"], "severity": 5, "potential_triggers": ["trigger"], '
                 '"mood": "string", "body_location": ["location"], "time_context": "string", "notes": "string"}\\n\\n'
+                f"Use canonical triggers where possible: {', '.join(CANONICAL_TRIGGER_LIST)}.\\n"
+                "Map similar phrases to basic forms (e.g., stressful experience -> stress, coffee -> caffeine).\\n"
                 "Use the actual data from the conversation. Include the word COMPLETE: at the start."
             )
         
@@ -407,9 +524,12 @@ async def guided_log_respond(request: Request):
             try:
                 extracted_data = call_llm({
                     "user_id": body.get("user_id", "00000000-0000-0000-0000-000000000001"),
-                    "transcript": f"Conversation:\\n{full_transcript}\\n\\nExtract the symptom data."
+                    "transcript": f"Conversation:\\n{full_transcript}\\n\\nExtract the symptom data.",
+                    "trigger_reference": CANONICAL_TRIGGER_LIST,
+                    "extraction_rules": "Prefer canonical triggers from trigger_reference and map similar phrases to root-cause names.",
                 })
                 extracted_data = sanitize_llm_data(extracted_data)
+                extracted_data["potential_triggers"] = normalize_triggers(extracted_data.get("potential_triggers", []))
                 
                 return {
                     "session_id": session_id,
@@ -444,9 +564,12 @@ async def guided_log_respond(request: Request):
             try:
                 extracted_data = call_llm({
                     "user_id": body.get("user_id", "00000000-0000-0000-0000-000000000001"),
-                    "transcript": f"Conversation:\\n{full_transcript}\\n\\nExtract the symptom data."
+                    "transcript": f"Conversation:\\n{full_transcript}\\n\\nExtract the symptom data.",
+                    "trigger_reference": CANONICAL_TRIGGER_LIST,
+                    "extraction_rules": "Prefer canonical triggers from trigger_reference and map similar phrases to root-cause names.",
                 })
                 extracted_data = sanitize_llm_data(extracted_data)
+                extracted_data["potential_triggers"] = normalize_triggers(extracted_data.get("potential_triggers", []))
                 
                 return {
                     "session_id": session_id,
@@ -570,11 +693,14 @@ def _finalize_guided_session(session_id: str, user_id: str) -> dict:
     try:
         llm_data = call_llm({
             "user_id": user_id,
-            "transcript": f"Conversation:\n{full_transcript}\n\nExtract the final symptom data from this conversation."
+            "transcript": f"Conversation:\n{full_transcript}\n\nExtract the final symptom data from this conversation.",
+            "trigger_reference": CANONICAL_TRIGGER_LIST,
+            "extraction_rules": "Prefer canonical triggers from trigger_reference and map similar phrases to root-cause names.",
         })
         
         # Sanitize LLM output to fix common issues (e.g., severity=0)
         llm_data = sanitize_llm_data(llm_data)
+        llm_data["potential_triggers"] = normalize_triggers(llm_data.get("potential_triggers", []))
         
         # Validate the extracted data
         is_valid, error_msg = validate_voicehealth_json_py(json.dumps(llm_data))
@@ -671,6 +797,7 @@ async def guided_log_finalize_legacy(request: Request):
     
     # 2. Sanitize LLM output to fix common issues (e.g., severity=0)
     llm_json = sanitize_llm_data(llm_json)
+    llm_json["potential_triggers"] = normalize_triggers(llm_json.get("potential_triggers", []))
 
     # 3. Validate the final extraction
     llm_json_str = json.dumps(llm_json)

@@ -11,6 +11,33 @@ from faster_whisper import WhisperModel
 
 app = FastAPI(title="Lemonade Symptom Extraction Adapter")
 
+# Hardcoded canonical trigger vocabulary (temporary; can be replaced with DB lookup later)
+CANONICAL_TRIGGER_LIST = [
+    "stress",
+    "anxiety",
+    "lack of sleep",
+    "caffeine",
+    "alcohol",
+    "dehydration",
+    "dairy",
+    "gluten",
+    "sugar",
+    "spicy food",
+    "processed food",
+    "allergens",
+    "weather change",
+    "air quality",
+    "hormonal changes",
+    "illness",
+    "medication",
+    "exercise",
+    "overexertion",
+    "injury",
+    "screen time",
+    "bright lights",
+    "loud noise",
+]
+
 # ============================================================================
 # PYDANTIC MODELS - Define strict response schema
 # ============================================================================
@@ -133,14 +160,19 @@ async def generate(request: Request):
     # Extract transcript from nested input structure
     input_data = payload.get("input", {})
     transcript = input_data.get("transcript", "")
+    trigger_reference = input_data.get("trigger_reference") or CANONICAL_TRIGGER_LIST
     
     if not transcript:
         raise HTTPException(status_code=400, detail="transcript field is required")
 
     # System prompt for symptom extraction with explicit JSON formatting
     system_prompt = (
-        "You are a medical symptom extraction assistant. Extract health information, and potential triggers"
+        "You are a medical symptom extraction assistant. Extract health information and ROOT-CAUSE triggers "
         "from the user's description. Be conservative - only extract information explicitly stated. "
+        "For potential_triggers, prefer canonical trigger names from this list: "
+        f"{', '.join(trigger_reference)}. "
+        "If user says a synonym, map to the basic canonical term (e.g., 'stressful experience' -> 'stress', "
+        "'coffee' -> 'caffeine'). If no canonical term clearly fits, use a simple basic term. "
         "Return ONLY valid JSON matching this exact format, with no markdown formatting: \n"
         "{\n"
         '  "symptoms": ["symptom1", "symptom2"],\n'
