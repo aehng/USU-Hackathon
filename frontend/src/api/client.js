@@ -3,7 +3,7 @@
 
 const DEFAULT_API_BASE_URL = 'https://api.flairup.dpdns.org';
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL;
-export const DEMO_USER_ID = 'demo-user-001';
+export const DEMO_USER_ID = '00000000-0000-0000-0000-000000000001';
 
 async function fetchJson(url, options = {}) {
   let response;

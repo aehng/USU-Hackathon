@@ -29,6 +29,15 @@ export const MOCK_INSIGHTS = {
     body: "Based on your recent logs (caffeine yesterday, low sleep), you may be at higher risk for a headache today.",
     riskLevel: "medium", // "low" | "medium" | "high"
   },
+  // Direct LLM-generated advice / diagnosis-style guidance
+  advice: {
+    title: "What your pattern suggests",
+    body:
+      "Your logs suggest a strong link between caffeine and next-day migraines, amplified when you also report poor sleep. " +
+      "Try limiting caffeine after 2pm and improving sleep hygiene for two weeks, then check if your average severity drops.",
+    disclaimer:
+      "This is not a medical diagnosis. If symptoms worsen, change, or worry you, talk to a licensed clinician.",
+  },
   message: null,
 };
 
@@ -62,12 +71,49 @@ export const MOCK_STATS = {
     { name: "Joint pain", value: 6 },
     { name: "Other", value: 4 },
   ],
+  // Heatmap: day (x) × time of day (y), filter by symptom. One row per (symptom, day, time_of_day).
+  symptom_temporal_heatmap: [
+    { symptom: "Headache", day: "Monday", time_of_day: "morning", value: 2 },
+    { symptom: "Headache", day: "Monday", time_of_day: "afternoon", value: 5 },
+    { symptom: "Headache", day: "Monday", time_of_day: "evening", value: 3 },
+    { symptom: "Headache", day: "Tuesday", time_of_day: "morning", value: 4 },
+    { symptom: "Headache", day: "Tuesday", time_of_day: "afternoon", value: 2 },
+    { symptom: "Headache", day: "Wednesday", time_of_day: "morning", value: 6 },
+    { symptom: "Headache", day: "Wednesday", time_of_day: "evening", value: 4 },
+    { symptom: "Headache", day: "Thursday", time_of_day: "afternoon", value: 5 },
+    { symptom: "Headache", day: "Friday", time_of_day: "evening", value: 7 },
+    { symptom: "Headache", day: "Saturday", time_of_day: "morning", value: 3 },
+    { symptom: "Headache", day: "Sunday", time_of_day: "afternoon", value: 2 },
+    { symptom: "Fatigue", day: "Monday", time_of_day: "morning", value: 8 },
+    { symptom: "Fatigue", day: "Monday", time_of_day: "afternoon", value: 4 },
+    { symptom: "Fatigue", day: "Tuesday", time_of_day: "morning", value: 6 },
+    { symptom: "Fatigue", day: "Wednesday", time_of_day: "morning", value: 7 },
+    { symptom: "Fatigue", day: "Thursday", time_of_day: "morning", value: 5 },
+    { symptom: "Fatigue", day: "Friday", time_of_day: "evening", value: 3 },
+    { symptom: "Stomach ache", day: "Monday", time_of_day: "afternoon", value: 4 },
+    { symptom: "Stomach ache", day: "Tuesday", time_of_day: "evening", value: 3 },
+    { symptom: "Stomach ache", day: "Wednesday", time_of_day: "afternoon", value: 5 },
+    { symptom: "Stomach ache", day: "Thursday", time_of_day: "morning", value: 2 },
+    { symptom: "Joint pain", day: "Monday", time_of_day: "evening", value: 2 },
+    { symptom: "Joint pain", day: "Saturday", time_of_day: "afternoon", value: 3 },
+  ],
+  // Activity × symptom correlation (used for confidence table)
+  activity_symptom_correlations: [
+    { activity: "Caffeine", symptom: "Headache", confidence: 0.85, sample_size: 14 },
+    { activity: "Caffeine", symptom: "Fatigue", confidence: 0.42, sample_size: 10 },
+    { activity: "Poor sleep", symptom: "Fatigue", confidence: 0.88, sample_size: 18 },
+    { activity: "Poor sleep", symptom: "Headache", confidence: 0.61, sample_size: 15 },
+    { activity: "Stressful day", symptom: "Stomach ache", confidence: 0.69, sample_size: 11 },
+    { activity: "Alcohol", symptom: "Headache", confidence: 0.9, sample_size: 9 },
+    { activity: "Skipped meals", symptom: "Stomach ache", confidence: 0.74, sample_size: 8 },
+  ],
 };
 
 /** "Not enough data" response shape for testing empty state */
 export const NOT_ENOUGH_DATA_INSIGHTS = {
   insights: [],
   prediction: null,
+  advice: null,
   message: "Not enough data yet. Keep logging to unlock insights!",
 };
 
@@ -77,4 +123,6 @@ export const NOT_ENOUGH_DATA_STATS = {
   trigger_correlations: [],
   severity_trends: [],
   symptom_frequency: [],
+  symptom_temporal_heatmap: [],
+  activity_symptom_correlations: [],
 };
