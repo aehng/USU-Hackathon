@@ -18,7 +18,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # 2. Perform local imports (Check filenames!)
 from validate_voicehealth_json_py import validate_voicehealth_json_py
-from models.models import Entry, User
+from models.models import Entry, User, TriggerTaxonomy
 from database import SessionLocal 
 
 # Configure logging
@@ -257,6 +257,71 @@ def save_entry_to_db(user_id: str, transcript: str, llm_data: dict):
         severity = llm_data.get("severity")
         if severity is not None and (severity < 1 or severity > 10):
             severity = None
+            
+        # -- TAXONOMY PIPELINE --
+        mapped_triggers = []
+        raw_triggers = llm_data.get("potential_triggers", [])
+        if raw_triggers:
+            from openai import OpenAI
+            import os
+            
+            for trig in raw_triggers:
+                trig = str(trig).strip().lower()
+                if not trig:
+                    continue
+                
+                # Check DB for existing mapping
+                existing_tax = db.query(TriggerTaxonomy).filter(
+                    TriggerTaxonomy.user_id == user_id, 
+                    TriggerTaxonomy.raw_trigger == trig
+                ).first()
+                
+                if existing_tax:
+                    if existing_tax.root_cause not in mapped_triggers:
+                        mapped_triggers.append(existing_tax.root_cause)
+                else:
+                    # Fast secondary LLM call to classify
+                    try:
+                        llm_base = os.getenv("LLM_SERVER_URL", "https://llm.flairup.dpdns.org").rstrip('/')
+                        client = OpenAI(api_key="not-needed", base_url=f"{llm_base}/v1")
+                        
+                        sys_prompt = (
+                            "You classify a raw action string into a 1-3 word broad root cause category.\\n"
+                            "Examples:\\n"
+                            "'Ate a large pizza' -> 'Heavy Meal'\\n"
+                            "'Drank 2 monsters' -> 'Caffeine'\\n"
+                            "'Stayed up till 4am' -> 'Sleep Deprivation'\\n"
+                            "'Stuck in traffic for 2 hours' -> 'Stress'\\n"
+                            "Return ONLY the root cause text."
+                        )
+                        
+                        response = client.chat.completions.create(
+                            model=os.getenv("FAST_LLM_MODEL", "AMD-OLMo-1B"),
+                            messages=[
+                                {"role": "system", "content": sys_prompt},
+                                {"role": "user", "content": f"Classify this trigger: {trig}"}
+                            ],
+                            temperature=0.1,
+                            max_tokens=10
+                        )
+                        
+                        root_cause = response.choices[0].message.content.strip().title()
+                        
+                        # Save mapping
+                        new_tax = TriggerTaxonomy(user_id=user_id, raw_trigger=trig, root_cause=root_cause)
+                        db.add(new_tax)
+                        db.commit()
+                        
+                        if root_cause not in mapped_triggers:
+                            mapped_triggers.append(root_cause)
+                    except Exception as llm_err:
+                        logger.error("Failed taxonomy LLM call for '%s': %s", trig, llm_err)
+                        # Fallback to the original raw trigger
+                        if trig not in mapped_triggers:
+                            mapped_triggers.append(trig)
+            
+            # Use mapped triggers for the entry
+            llm_data["potential_triggers"] = mapped_triggers
         
         entry = Entry(
             user_id=user_id,

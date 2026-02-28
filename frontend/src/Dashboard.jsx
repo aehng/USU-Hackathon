@@ -14,7 +14,8 @@ import {
   NOT_ENOUGH_DATA_INSIGHTS,
   NOT_ENOUGH_DATA_STATS,
 } from "./mock/dashboardData.js";
-
+// --- ADD THIS RIGHT ABOVE YOUR DASHBOARD COMPONENT ---
+// ---------------------------------------------------
 export default function Dashboard() {
   const [insights, setInsights] = useState(null);
   const [stats, setStats] = useState(null);
@@ -22,31 +23,33 @@ export default function Dashboard() {
   const [useMock, setUseMock] = useState(false); // Toggle to false when API is ready
   const [activeTab, setActiveTab] = useState("main"); // 'main' | 'guided' | 'quick' | 'history'
 
-  useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      if (useMock) {
-        // Simulate network delay
-        await new Promise((r) => setTimeout(r, 400));
-        setInsights(MOCK_INSIGHTS);
-        setStats(MOCK_STATS);
-      } else {
-        try {
-          const [insightsRes, statsRes] = await Promise.all([
-            fetch(`${API_BASE_URL}/api/insights/${DEMO_USER_ID}`).then(r => r.json()),
-            fetch(`${API_BASE_URL}/api/stats/${DEMO_USER_ID}`).then(r => r.json()),
-          ]);
-          setInsights(insightsRes);
-          setStats(statsRes);
-        } catch (err) {
-          console.error(err);
-          setInsights(NOT_ENOUGH_DATA_INSIGHTS);
-          setStats(NOT_ENOUGH_DATA_STATS);
-        }
+  // 1. Pull the fetch logic OUT into its own reusable function
+  const refreshDashboardData = async () => {
+    setLoading(true);
+    if (useMock) {
+      await new Promise((r) => setTimeout(r, 400));
+      setInsights(MOCK_INSIGHTS);
+      setStats(MOCK_STATS);
+    } else {
+      try {
+        const [insightsRes, statsRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/api/insights/${DEMO_USER_ID}`).then(r => r.json()),
+          fetch(`${API_BASE_URL}/api/stats/${DEMO_USER_ID}`).then(r => r.json()),
+        ]);
+        setInsights(insightsRes);
+        setStats(statsRes);
+      } catch (err) {
+        console.error(err);
+        setInsights(NOT_ENOUGH_DATA_INSIGHTS);
+        setStats(NOT_ENOUGH_DATA_STATS);
       }
-      setLoading(false);
     }
-    fetchData();
+    setLoading(false);
+  };
+
+  // 2. The useEffect now just calls that function on load
+  useEffect(() => {
+    refreshDashboardData();
   }, [useMock]);
 
   const notEnoughData =
@@ -250,14 +253,27 @@ export default function Dashboard() {
                     stroke="currentColor"
                     className="text-slate-500"
                   />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: "8px",
-                      border: "1px solid var(--tw-border-color)",
+                  
+                  {/* --- NEW CLEAN TOOLTIP HERE --- */}
+                 <Tooltip 
+                    // 'shared: false' ensures the tooltip focuses ONLY on the active dot
+                    shared={false} 
+                    // 'intersect: true' makes it trigger exactly when you are over the point
+                    intersect={true}
+                    cursor={{ stroke: '#cbd5e1', strokeWidth: 1 }}
+                    contentStyle={{ 
+                      backgroundColor: '#ffffff', 
+                      borderRadius: '8px', 
+                      border: '1px solid #e2e8f0', 
+                      boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
                     }}
-                    formatter={(value) => [`${value}/10`, "Severity"]}
+                    // This is the magic line: 'value' and 'name' are passed dynamically for EACH point
+                    formatter={(value, name, props) => {
+                      return [`${value} / 10`, "Intensity"];
+                    }}
                     labelFormatter={(label) => `Date: ${label}`}
                   />
+                  
                   <Line
                     type="monotone"
                     dataKey="severity"
@@ -280,7 +296,10 @@ export default function Dashboard() {
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
-                  data={stats.trigger_correlations}
+                  // Ensure we handle 'null' stats with the optional chaining and empty array fallback
+                  data={[...(stats?.trigger_correlations || [])]
+                    .sort((a, b) => b.value - a.value) // Highest first
+                    .slice(0, 3)}                     // Top 3 only
                   layout="vertical"
                   margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
                 >
@@ -331,7 +350,7 @@ export default function Dashboard() {
             <p className="mb-4 text-sm text-slate-600">
               Start with a short description and we&apos;ll walk you through a few smart follow-up questions.
             </p>
-            <VoiceRecorder mode="guided" />
+            <VoiceRecorder mode="guided" onLogSaved={refreshDashboardData} />
           </section>
         )}
 
@@ -341,7 +360,7 @@ export default function Dashboard() {
             <p className="mb-4 text-sm text-slate-600">
               Fire-and-forget: one fast voice or typed log when you&apos;re in a hurry.
             </p>
-            <VoiceRecorder mode="quick" />
+           <VoiceRecorder mode="quick" onLogSaved={refreshDashboardData} />
           </section>
         )}
 

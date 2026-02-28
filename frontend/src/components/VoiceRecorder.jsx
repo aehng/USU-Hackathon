@@ -3,7 +3,7 @@ import { RefreshContext } from '../context/RefreshContext';
 import { quickLog, guidedLogStart, guidedLogRespond, guidedLogFinalize, transcribeAudio } from '../api/client';
 import './VoiceRecorder.css';
 
-function VoiceRecorder({ mode }) {
+function VoiceRecorder({ mode, onLogSaved }) {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
   const [manualText, setManualText] = useState('');
@@ -141,7 +141,8 @@ function VoiceRecorder({ mode }) {
         const response = await quickLog(inputText);
         console.log('✅ Got response:', response);
         setResult(response);
-        triggerRefresh();
+        triggerRefresh(); // This handles context/history
+        if (onLogSaved) onLogSaved(); // <-- ADD THIS to refresh the dashboard charts
       } else {
         // Guided mode
         console.log('🎯 Starting guided log...');
@@ -157,6 +158,7 @@ function VoiceRecorder({ mode }) {
             extracted_data: extractedData
           });
           triggerRefresh();
+          if (onLogSaved) onLogSaved(); // <-- ADD THIS to refresh the dashboard charts
         } else {
           // More questions needed
           setGuidedState(response);
@@ -185,18 +187,20 @@ function VoiceRecorder({ mode }) {
       
       console.log('📝 Guided response:', response);
       
-      if (response.is_complete) {
-        // Finalize session and extract structured data via /generate endpoint
-        const extractedData = await guidedLogFinalize(response.session_id);
-        setResult({
-          status: 'success',
-          message: 'Guided log completed',
-          extracted_data: extractedData
-        });
-        setGuidedState(null);
-        setAnswers([]);
-        triggerRefresh();
-      } else {
+// Inside handleGuidedAnswer
+if (response.is_complete) {
+  const data = await guidedLogFinalize(response.session_id);
+  
+  setResult({
+    status: 'success',
+    ...data // Spread the data directly since client.js already unwrapped it
+  });
+  
+  setGuidedState(null);
+  setAnswers([]);
+  triggerRefresh();
+  if (onLogSaved) onLogSaved();
+} else {
         // More questions - update state
         setGuidedState(response);
         setAnswers([...answers, { question: guidedState.question, answer }]);
