@@ -241,7 +241,11 @@ export default function Dashboard() {
             </h2>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={stats.severity_trends} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <LineChart
+                  data={stats.severity_trends}
+                  margin={{ top: 5, right: 10, left: 0, bottom: 5 }}
+                  style={{ pointerEvents: "auto" }}
+                >
                   <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200" />
                   <XAxis
                     dataKey="date"
@@ -257,7 +261,8 @@ export default function Dashboard() {
                     className="text-slate-500"
                   />
                   
-                  <Tooltip 
+                  <Tooltip
+                    key={`tooltip-${stats?.severity_trends?.length}`}
                     shared={false} 
                     intersect={false}
                     cursor={{ stroke: '#cbd5e1', strokeWidth: 1 }}
@@ -267,11 +272,9 @@ export default function Dashboard() {
                       border: '1px solid #e2e8f0', 
                       boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' 
                     }}
-                    // Use 'payload' to ensure we are grabbing the raw data from the API
-                    formatter={(value, name, props) => {
-                      // We grab the value directly from the data point's payload
-                      const actualValue = props.payload.severity; 
-                      return [`${actualValue} / 10`, "Intensity"];
+                    formatter={(value) => {
+                      const displayValue = value !== undefined ? value : 0;
+                      return [`${displayValue} / 10`, "Intensity"];
                     }}
                     labelFormatter={(label) => `Date: ${label}`}
                   />
