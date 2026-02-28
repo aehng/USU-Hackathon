@@ -6,6 +6,8 @@ import './VoiceRecorder.css';
 function VoiceRecorder({ mode }) {
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
+  const [manualText, setManualText] = useState('');
+  const [isTypeMode, setIsTypeMode] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [result, setResult] = useState(null);
@@ -194,8 +196,15 @@ function VoiceRecorder({ mode }) {
     setShowWarning(false);
     retryCountRef.current = 0; // Reset retry counter
 
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const shouldSkipMicPreflight = !window.isSecureContext && !isLocalhost;
+
     try {
-      await ensureMicrophonePermission();
+      if (!shouldSkipMicPreflight) {
+        await ensureMicrophonePermission();
+      } else {
+        console.warn('Skipping getUserMedia preflight on non-secure origin; attempting SpeechRecognition directly.');
+      }
       setIsRecording(true);
       recognitionRef.current?.start();
     } catch (e) {
@@ -225,10 +234,8 @@ function VoiceRecorder({ mode }) {
     }
   };
 
-  const handleStopAndSubmit = async () => {
-    stopRecording();
-
-    if (!transcript.trim()) {
+  const submitLog = async (inputText) => {
+    if (!inputText.trim()) {
       setError('No speech detected. Please try again.');
       return;
     }
@@ -238,12 +245,11 @@ function VoiceRecorder({ mode }) {
 
     try {
       if (mode === 'quick') {
-        const response = await quickLog(transcript);
+        const response = await quickLog(inputText);
         setResult(response);
-        triggerRefresh(); // Trigger refresh for dashboard/history
+        triggerRefresh();
       } else {
-        // Guided mode
-        const response = await guidedLogStart(transcript);
+        const response = await guidedLogStart(inputText);
         setGuidedState(response);
         setCurrentQuestion(0);
         setAnswers([]);
@@ -254,6 +260,11 @@ function VoiceRecorder({ mode }) {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleStopAndSubmit = async () => {
+    stopRecording();
+    await submitLog(transcript);
   };
 
   const handleTryAgain = () => {
@@ -270,8 +281,17 @@ function VoiceRecorder({ mode }) {
   const handleTypeInstead = () => {
     setError(null);
     setResult(null);
-    // TODO: Show manual form
-    alert('Manual form not implemented yet');
+    setIsTypeMode(true);
+    setManualText(transcript);
+  };
+
+  const handleSubmitTyped = async () => {
+    await submitLog(manualText);
+  };
+
+  const handleCancelTyped = () => {
+    setIsTypeMode(false);
+    setManualText('');
   };
 
   const handleGuidedAnswer = async (answer) => {
@@ -299,6 +319,8 @@ function VoiceRecorder({ mode }) {
 
   const handleReset = () => {
     setTranscript('');
+    setManualText('');
+    setIsTypeMode(false);
     setResult(null);
     setError(null);
     setGuidedState(null);
@@ -403,8 +425,28 @@ function VoiceRecorder({ mode }) {
         </div>
       )}
 
+      {isTypeMode && !isLoading && (
+        <div className="typed-input">
+          <strong>Type your symptoms</strong>
+          <textarea
+            value={manualText}
+            onChange={(e) => setManualText(e.target.value)}
+            placeholder="Example: I’ve had a headache since lunch, severity 7 out of 10, maybe from too much coffee"
+            rows={5}
+          />
+          <div className="typed-actions">
+            <button className="submit-button" onClick={handleSubmitTyped}>
+              Submit Typed Log
+            </button>
+            <button className="cancel-button" onClick={handleCancelTyped}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="controls">
-        {!isRecording && !isLoading && (
+        {!isRecording && !isLoading && !isTypeMode && (
           <button 
             className="mic-button" 
             onClick={startRecording}
@@ -423,7 +465,7 @@ function VoiceRecorder({ mode }) {
         )}
       </div>
 
-      {transcript && !isRecording && !isLoading && !error && (
+      {transcript && !isRecording && !isLoading && !error && !isTypeMode && (
         <div className="transcript-preview">
           <strong>Your recording:</strong>
           <p>{transcript}</p>

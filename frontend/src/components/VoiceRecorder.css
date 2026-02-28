@@ -229,6 +229,46 @@
   background: #666;
 }
 
+.typed-input {
+  margin-top: 20px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.typed-input textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 110px;
+  padding: 12px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.typed-input textarea:focus {
+  outline: none;
+  border-color: #2196F3;
+}
+
+.typed-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.cancel-button {
+  margin-top: 16px;
+  padding: 14px 24px;
+  border: none;
+  border-radius: 8px;
+  background: #666;
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+}
+
 .voice-recorder.success {
   background: linear-gradient(135deg, #81c784 0%, #66bb6a 100%);
   color: white;
