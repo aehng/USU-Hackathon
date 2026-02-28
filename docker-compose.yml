@@ -5,7 +5,6 @@ services:
       - "8001:8000"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/healthtracker
-      - USE_MOCK_LLM=true
     volumes:
       - ./backend:/app # This maps your VM folder to the container so code updates instantly when you save
 

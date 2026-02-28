@@ -53,38 +53,22 @@ async def quick_log(request: Request):
         user_id = body.get("user_id")
         transcript = body.get("transcript")
 
-        # Check if we should use mock mode (for testing without LLM server)
-        use_mock = os.getenv("USE_MOCK_LLM", "false").lower() == "true"
-        
-        if use_mock:
-            # Mock LLM response for testing
-            llm_json = {
-                "symptoms": ["headache", "fatigue"],
-                "severity": 5,
-                "potential_triggers": ["stress", "poor sleep"],
-                "mood": "tired",
-                "body_location": "head",
-                "time_context": "morning",
-                "notes": "Mock response for testing"
-            }
-            logger.info("Using mock LLM response")
-        else:
-            # default location for the LLM adapter via Cloudflare tunnel
-            # use HTTPS so TLS is terminated by the tunnel
-            llm_base = os.getenv("LLM_SERVER_URL", "https://llm.flairup.dpdns.org")
-            llm_endpoint = f"{llm_base.rstrip('/')}/generate"
-            logger.info(f"Calling LLM endpoint: {llm_endpoint}")
-            try:
-                # Timeout for smaller models (1.7B-4B are ~10-30s, 8B+ can take 30-90s)
-                resp = requests.post(llm_endpoint, json={"input": body}, timeout=60)
-                resp.raise_for_status()
-                llm_json = resp.json()
-            except requests.RequestException as exc:
-                logger.error(f"LLM request failed: {exc}")
-                raise HTTPException(status_code=502, detail=f"LLM request failed: {exc}")
-            except ValueError as exc:
-                logger.error(f"LLM returned non-JSON response: {exc}")
-                raise HTTPException(status_code=502, detail="LLM returned non-JSON response")
+        # default location for the LLM adapter via Cloudflare tunnel
+        # use HTTPS so TLS is terminated by the tunnel
+        llm_base = os.getenv("LLM_SERVER_URL", "https://llm.flairup.dpdns.org")
+        llm_endpoint = f"{llm_base.rstrip('/')}/generate"
+        logger.info(f"Calling LLM endpoint: {llm_endpoint}")
+        try:
+            # Timeout for smaller models (1.7B-4B are ~10-30s, 8B+ can take 30-90s)
+            resp = requests.post(llm_endpoint, json={"input": body}, timeout=60)
+            resp.raise_for_status()
+            llm_json = resp.json()
+        except requests.RequestException as exc:
+            logger.error(f"LLM request failed: {exc}")
+            raise HTTPException(status_code=502, detail=f"LLM request failed: {exc}")
+        except ValueError as exc:
+            logger.error(f"LLM returned non-JSON response: {exc}")
+            raise HTTPException(status_code=502, detail="LLM returned non-JSON response")
 
         # record entry in database
         db = SessionLocal()
