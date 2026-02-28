@@ -16,7 +16,7 @@ class SymptomExtraction(BaseModel):
     """Schema for extracting symptoms from a single voice/text log entry."""
     symptoms: List[str]  # e.g., ["headache", "nausea", "dizziness"]
     severity: int  # 1-10 scale
-    potential_triggers: List[str]  # e.g., ["stress", "caffeine", "lack of sleep"]
+    potential_triggers: Optional[List[str]] = []  # e.g., ["stress", "caffeine", "lack of sleep"]
     mood: Optional[str] = None  # e.g., "anxious", "tired", "fine"
     body_location: Optional[str] = None  # e.g., "head", "stomach", "chest"
     time_context: Optional[str] = None  # e.g., "since morning", "for 2 hours", "all day"
