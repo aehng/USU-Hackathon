@@ -7,7 +7,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     allowedHosts: ['flairup.dpdns.org'],
-    port: 3000,
+    port: 5173,
     strictPort: true,
   }
 })
