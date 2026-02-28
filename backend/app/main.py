@@ -300,8 +300,13 @@ async def guided_log_start(request: Request):
         
         # Enforce at least one follow-up question before completion
         user_message_count = sum(1 for msg in guided_sessions[session_id] if msg["role"] == "user")
-        # Check if COMPLETE appears anywhere in the message (handle malformed responses)
-        if ("COMPLETE" in assistant_message.upper()) and user_message_count < 2:
+        
+        # Detect if LLM is trying to output JSON without COMPLETE: prefix
+        is_raw_json = (assistant_message.strip().startswith('{') and 
+                      ('"symptoms"' in assistant_message or '"severity"' in assistant_message))
+        
+        # Check if COMPLETE appears anywhere or if it's raw JSON (handle malformed responses)
+        if (("COMPLETE" in assistant_message.upper()) or is_raw_json) and user_message_count < 3:
             # LLM tried to complete too early, force a question instead
             logger.warning("LLM tried to complete without asking questions, forcing follow-up")
             assistant_message = "On a scale of 1-10, how severe is your pain or discomfort?"
@@ -354,30 +359,47 @@ async def guided_log_respond(request: Request):
         # Add user's answer to conversation
         guided_sessions[session_id].append({"role": "user", "content": answer})
         
-        # Update system prompt after first answer to allow completion (only once)
+        # Update system prompt after first answer to focus on triggers
         user_message_count = sum(1 for msg in guided_sessions[session_id] if msg["role"] == "user")
         if user_message_count == 2:  # Just got second user message (initial + first answer)
-            # Update system prompt to allow completion after next question
+            # After severity, ask about triggers
             guided_sessions[session_id][0]["content"] = (
-                "You are a helpful health assistant gathering symptom information.\\n\\n"
-                "After this next question, you should complete the conversation by responding with:\\n"
-                'COMPLETE:{"symptoms": ["example"], "severity": 5, "potential_triggers": ["example"], '
+                "You are a helpful health assistant. Ask about what might have caused or triggered the symptoms.\\n\\n"
+                "Ask about:\\n"
+                "- Recent activities or injuries\\n"
+                "- Foods they ate\\n"
+                "- Stress or emotional state\\n"
+                "- Environmental factors\\n\\n"
+                "Keep the question under 15 words."
+            )
+        elif user_message_count == 3:  # Got trigger answer, now allow completion
+            guided_sessions[session_id][0]["content"] = (
+                "You are a helpful health assistant. You have enough information now.\\n\\n"
+                "Respond with EXACTLY this format (no extra text):\\n"
+                'COMPLETE:{"symptoms": ["symptom"], "severity": 5, "potential_triggers": ["trigger"], '
                 '"mood": "string", "body_location": ["location"], "time_context": "string", "notes": "string"}\\n\\n'
-                "Replace example values with actual data from the conversation. Use proper JSON format.\\n\\n"
-                "Or ask ONE more short question if critical information is still missing."
+                "Use the actual data from the conversation. Include the word COMPLETE: at the start."
             )
         
         # Get next question or completion from LLM
         assistant_message = call_llm_chat(guided_sessions[session_id], temperature=0.7)
         guided_sessions[session_id].append({"role": "assistant", "content": assistant_message})
         
-        # Enforce at least 2 user messages before allowing completion
+        # Enforce at least 3 user messages (initial + 2 answers) before allowing completion
         user_message_count = sum(1 for msg in guided_sessions[session_id] if msg["role"] == "user")
-        # Check if COMPLETE appears anywhere (handle malformed responses)
-        if ("COMPLETE" in assistant_message.upper()) and user_message_count < 2:
+        
+        # Detect if LLM is trying to output JSON without COMPLETE: prefix
+        is_raw_json = (assistant_message.strip().startswith('{') and 
+                      ('"symptoms"' in assistant_message or '"severity"' in assistant_message))
+        
+        # Check if COMPLETE appears anywhere or if it's raw JSON
+        if (("COMPLETE" in assistant_message.upper()) or is_raw_json) and user_message_count < 3:
             # Force another question if too early
-            logger.warning("LLM tried to complete too early in conversation, forcing another question")
-            assistant_message = "Can you tell me more about what might have triggered this? Any activities, foods, or situations before you noticed the symptoms?"
+            logger.warning(f"LLM tried to complete too early (user_count={user_message_count}), forcing trigger question")
+            if user_message_count == 2:
+                assistant_message = "What do you think might have caused this? Any activities, injuries, foods, or situations before you noticed it?"
+            else:
+                assistant_message = "Can you tell me more about what might have triggered this?"
             guided_sessions[session_id][-1] = {"role": "assistant", "content": assistant_message}
         
         # Check if complete
