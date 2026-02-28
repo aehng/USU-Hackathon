@@ -62,6 +62,21 @@ export const MOCK_STATS = {
     { name: "Joint pain", value: 6 },
     { name: "Other", value: 4 },
   ],
+  // Heatmap: trigger × symptom correlation (score 0–1)
+  trigger_symptom_correlations: [
+    { trigger: "Caffeine", symptom: "Headache", score: 0.72 },
+    { trigger: "Caffeine", symptom: "Fatigue", score: 0.35 },
+    { trigger: "Poor sleep", symptom: "Headache", score: 0.41 },
+    { trigger: "Poor sleep", symptom: "Fatigue", score: 0.82 },
+    { trigger: "Poor sleep", symptom: "Stomach ache", score: 0.28 },
+    { trigger: "Stress", symptom: "Headache", score: 0.58 },
+    { trigger: "Stress", symptom: "Fatigue", score: 0.44 },
+    { trigger: "Stress", symptom: "Stomach ache", score: 0.67 },
+    { trigger: "Alcohol", symptom: "Headache", score: 0.85 },
+    { trigger: "Alcohol", symptom: "Fatigue", score: 0.52 },
+    { trigger: "Skipped meals", symptom: "Headache", score: 0.31 },
+    { trigger: "Skipped meals", symptom: "Stomach ache", score: 0.61 },
+  ],
 };
 
 /** "Not enough data" response shape for testing empty state */
@@ -77,4 +92,5 @@ export const NOT_ENOUGH_DATA_STATS = {
   trigger_correlations: [],
   severity_trends: [],
   symptom_frequency: [],
+  trigger_symptom_correlations: [],
 };

@@ -16,6 +16,7 @@ import {
 } from "recharts";
 import InsightCard from "./components/InsightCard.jsx";
 import PredictionCard from "./components/PredictionCard.jsx";
+import TriggerSymptomHeatmap from "./components/TriggerSymptomHeatmap.jsx";
 import {
   MOCK_INSIGHTS,
   MOCK_STATS,
@@ -77,6 +78,7 @@ export default function Dashboard() {
   const hasPrediction = insights?.prediction && !notEnoughData;
   const hasSeverityData = stats?.severity_trends?.length > 0;
   const hasTriggerData = stats?.trigger_correlations?.length > 0;
+  const hasHeatmapData = stats?.trigger_symptom_correlations?.length > 0;
   const hasSymptomData = stats?.symptom_frequency?.length > 0;
 
   if (loading) {
@@ -228,6 +230,15 @@ export default function Dashboard() {
           </section>
         )}
 
+        {hasHeatmapData && (
+          <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
+            <h2 className="mb-3 text-lg font-semibold text-slate-800 dark:text-slate-200">
+              Trigger × symptom correlation
+            </h2>
+            <TriggerSymptomHeatmap data={stats.trigger_symptom_correlations} />
+          </section>
+        )}
+
         {hasSymptomData && (
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-lg font-semibold text-slate-800 dark:text-slate-200">
@@ -265,7 +276,7 @@ export default function Dashboard() {
           </section>
         )}
 
-        {!hasInsights && !hasPrediction && !hasSeverityData && !hasTriggerData && !hasSymptomData && !notEnoughData && (
+        {!hasInsights && !hasPrediction && !hasSeverityData && !hasTriggerData && !hasHeatmapData && !hasSymptomData && !notEnoughData && (
           <p className="text-center text-slate-500 dark:text-slate-400">
             No dashboard data available.
           </p>

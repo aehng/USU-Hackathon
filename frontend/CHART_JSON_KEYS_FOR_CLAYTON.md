@@ -64,7 +64,28 @@ Max’s dashboard charts expect these **exact** keys. Map your analysis output t
 
 ---
 
-## 4. Root-level keys on stats response
+## 4. Trigger × symptom heatmap
+
+**Top-level key:** `trigger_symptom_correlations`  
+**Type:** array of objects (one per trigger–symptom pair with a correlation)
+
+| Key      | Type   | Notes                    |
+|----------|--------|---------------------------|
+| `trigger`| string | Trigger name              |
+| `symptom`| string | Symptom name              |
+| `score`  | number | Correlation 0–1           |
+
+**Example:**
+```json
+"trigger_symptom_correlations": [
+  { "trigger": "Caffeine", "symptom": "Headache", "score": 0.72 },
+  { "trigger": "Poor sleep", "symptom": "Fatigue", "score": 0.82 }
+]
+```
+
+---
+
+## 5. Root-level keys on stats response
 
 The dashboard also reads these on the stats payload:
 
@@ -79,6 +100,7 @@ The dashboard also reads these on the stats payload:
 
 - **severity_trends** → `[{ "date", "severity" }, ...]`
 - **trigger_correlations** → `[{ "name", "value" }, ...]`
+- **trigger_symptom_correlations** → `[{ "trigger", "symptom", "score" }, ...]` (heatmap)
 - **symptom_frequency** → `[{ "name", "value" }, ...]`
 
 Spelling and key names must match exactly or the charts will be empty.
