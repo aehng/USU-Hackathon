@@ -10,9 +10,6 @@ from uuid import UUID
 import json
 import uuid
 from typing import Dict, List
-from validate_voicehealth_json_py import sanitize_voicehealth_data
-import json
-from models.models import Entry, User
 
 # database imports
 from database import SessionLocal
