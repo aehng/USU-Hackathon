@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, Request, HTTPException, UploadFile, File
+import io
 import uvicorn
 import os
 import json
@@ -77,11 +78,7 @@ async def generate(request: Request):
 
     # System prompt for symptom extraction with explicit JSON formatting
     system_prompt = (
-<<<<<<< HEAD
         "You are a medical symptom extraction assistant. Extract health information Focus on Triggers it's the most important part"
-=======
-        "You are a medical symptom extraction assistant. Extract health information "
->>>>>>> 49122d6a41e8a898c7c319d2156c8cb2a461dbf5
         "from the user's description. Be conservative - only extract information explicitly stated. "
         "Return ONLY valid JSON matching this exact format, with no markdown formatting:\n"
         "{\n"
@@ -106,11 +103,7 @@ async def generate(request: Request):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content}
             ],
-<<<<<<< HEAD
             temperature=0.3,
-=======
-            temperature=0.0,
->>>>>>> 49122d6a41e8a898c7c319d2156c8cb2a461dbf5
         )
         
         # Extract the text response
@@ -157,7 +150,76 @@ async def generate(request: Request):
             detail=f"LLM extraction failed: {str(exc)}"
         )
 
+@app.post("/transcribe")
+async def transcribe_audio(file: UploadFile = File(...)):
+    """
+    Takes an audio file, transcribes it using Lemonade's STT model, 
+    and returns the raw text. Keeps everything in memory.
+    """
+    try:
+        audio_bytes = await file.read()
+        
+        # OpenAI client requires a file-like object with a name attribute
+        buffer = io.BytesIO(audio_bytes)
+        buffer.name = file.filename if file.filename else "audio.webm"
 
+        print(f"🔄 Sending audio ({buffer.name}) to Lemonade for transcription...")
+        
+        response = client.audio.transcriptions.create(
+            model="whisper-small", # Make sure this matches your Lemonade Whisper model name
+            file=buffer
+        )
+        
+        print(f"✅ Transcription success: {response.text[:50]}...")
+        return {"status": "success", "transcript": response.text}
+
+    except Exception as exc:
+        print(f"❌ Transcription error: {type(exc).__name__}: {str(exc)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=502,
+            detail=f"Audio transcription failed: {str(exc)}"
+        )
+    
+
+@app.post("/api/log/audio")
+async def process_audio_upload(file: UploadFile = File(...)):
+    """
+    Receives an audio file from the frontend, forwards it to the adapter 
+    for transcription, and returns the text for user review.
+    """
+    try:
+        # Defaulting to 8000 assuming you run the adapter on the same machine
+        adapter_base = os.getenv("ADAPTER_SERVER_URL", "http://localhost:8000").rstrip('/')
+        transcribe_endpoint = f"{adapter_base}/transcribe"
+        
+        logger.info(f"Forwarding audio to adapter: {transcribe_endpoint}")
+
+        audio_content = await file.read()
+        
+        files = {
+            "file": (file.filename or "audio.webm", audio_content, file.content_type or "audio/webm")
+        }
+
+        # Send to the adapter
+        resp = requests.post(transcribe_endpoint, files=files, timeout=60)
+        resp.raise_for_status()
+        
+        adapter_data = resp.json()
+        
+        return {
+            "status": "success", 
+            "transcript": adapter_data.get("transcript", "")
+        }
+
+    except requests.RequestException as exc:
+        logger.error("Adapter transcription request failed: %s", exc)
+        raise HTTPException(status_code=502, detail="Transcription service unavailable.")
+    except Exception as exc:
+        logger.error("Unhandled exception in audio transcription: %s\n%s", exc, traceback.format_exc())
+        raise HTTPException(status_code=500, detail="Internal server error processing audio")
+    
 if __name__ == "__main__":
     # Default adapter port is 8000 on the laptop
     port = int(os.getenv("ADAPTER_PORT", "8000"))
