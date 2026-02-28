@@ -115,6 +115,25 @@ export async function guidedLogRespond(sessionId, answer) {
   return response;
 }
 
+// Guided log - finalize session and extract data via /generate endpoint
+export async function guidedLogFinalize(sessionId) {
+  console.log('🚀 guidedLogFinalize called with session:', sessionId);
+  const url = `${API_BASE_URL}/api/guided-log/finalize`;
+  console.log('🌐 Finalizing guided log at:', url);
+  
+  const response = await fetchJson(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      session_id: sessionId,
+      user_id: DEMO_USER_ID
+    })
+  });
+  
+  console.log('✅ guidedLogFinalize response:', response);
+  return response.extracted_data;
+}
+
 // Guided log - save completed guided log to database
 export async function guidedLogSave(extractedData) {
   console.log('🚀 guidedLogSave called:', extractedData);

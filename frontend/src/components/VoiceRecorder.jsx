@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useContext } from 'react';
 import { RefreshContext } from '../context/RefreshContext';
-import { quickLog, guidedLogStart, guidedLogRespond, guidedLogSave, transcribeAudio } from '../api/client';
+import { quickLog, guidedLogStart, guidedLogRespond, guidedLogFinalize, transcribeAudio } from '../api/client';
 import './VoiceRecorder.css';
 
 function VoiceRecorder({ mode }) {
@@ -147,8 +147,21 @@ function VoiceRecorder({ mode }) {
         console.log('🎯 Starting guided log...');
         const response = await guidedLogStart(inputText);
         console.log('✅ Got guided response:', response);
-        setGuidedState(response);
-        setAnswers([]);
+        
+        if (response.is_complete) {
+          // Conversation complete immediately - finalize to get structured data
+          const extractedData = await guidedLogFinalize(response.session_id);
+          setResult({
+            status: 'success',
+            message: 'Guided log completed',
+            extracted_data: extractedData
+          });
+          triggerRefresh();
+        } else {
+          // More questions needed
+          setGuidedState(response);
+          setAnswers([]);
+        }
       }
     } catch (err) {
       console.error('Log failed:', err);
@@ -173,9 +186,13 @@ function VoiceRecorder({ mode }) {
       console.log('📝 Guided response:', response);
       
       if (response.is_complete) {
-        // Save the extracted data to database
-        const saveResponse = await guidedLogSave(response.extracted_data);
-        setResult(saveResponse);
+        // Finalize session and extract structured data via /generate endpoint
+        const extractedData = await guidedLogFinalize(response.session_id);
+        setResult({
+          status: 'success',
+          message: 'Guided log completed',
+          extracted_data: extractedData
+        });
         setGuidedState(null);
         setAnswers([]);
         triggerRefresh();

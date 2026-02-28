@@ -358,9 +358,77 @@ def _extract_completion_data(completion_message: str) -> dict:
             json_str = "\n".join(json_lines).strip()
         
         return json.loads(json_str)
-    except json.JSONDecodeError as e:
-        logger.error(f"Failed to parse completion JSON: {completion_message}")
-        raise HTTPException(status_code=500, detail="Failed to parse completion data")
+
+
+def _finalize_guided_session(session_id: str, user_id: str) -> dict:
+    """Finalize a guided session by sending conversation to /generate endpoint."""
+    if session_id not in guided_sessions:
+        raise HTTPException(status_code=404, detail="Session not found or expired")
+    
+    conversation = guided_sessions[session_id]
+    
+    # Extract conversation text for transcript
+    transcript_parts = []
+    for msg in conversation:
+        if msg["role"] == "user":
+            transcript_parts.append(f"User: {msg['content']}")
+        elif msg["role"] == "assistant":
+            transcript_parts.append(f"Assistant: {msg['content']}")
+    
+    full_transcript = "\n".join(transcript_parts)
+    
+    # Call /generate endpoint with the full conversation
+    try:
+        llm_data = call_llm({
+            "user_id": user_id,
+            "transcript": f"Conversation:\n{full_transcript}\n\nExtract the final symptom data from this conversation."
+        })
+        
+        # Validate the extracted data
+        is_valid, error_msg = validate_voicehealth_json_py(json.dumps(llm_data))
+        if not is_valid:
+            logger.error("Final LLM output failed validation: %s", error_msg)
+            raise HTTPException(status_code=422, detail=f"LLM returned invalid data: {error_msg}")
+        
+        del guided_sessions[session_id]  # Clean up
+        return llm_data
+        
+    except Exception as e:
+        logger.error("Failed to finalize guided session: %s", e)
+        raise HTTPException(status_code=502, detail=f"Finalization failed: {str(e)}")
+
+
+@app.post("/api/guided-log/finalize")
+async def guided_log_finalize(request: Request):
+    """Finalize a guided session: converts conversation to structured symptom data.
+    
+    Sends the full conversation to /generate endpoint to extract final JSON.
+    """
+    try:
+        body = await request.json()
+        session_id = body.get("session_id")
+        user_id = body.get("user_id") or "00000000-0000-0000-0000-000000000001"
+        
+        if not session_id:
+            raise HTTPException(status_code=400, detail="Missing session_id")
+        
+        extracted_data = _finalize_guided_session(session_id, user_id)
+        
+        # Save to database
+        entry_id = save_entry_to_db(user_id, "", extracted_data)
+        
+        return {
+            "session_id": session_id,
+            "extracted_data": extracted_data,
+            "entry_id": entry_id,
+            "status": "completed"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Guided log finalize failed: %s\n%s", exc, traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Finalization failed: {str(exc)}")
 
 
 # Legacy guided log endpoints (deprecated - use /guided-log/* instead)
