@@ -11,7 +11,7 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "5173:5173"
+      - "3000:3000"
     volumes:
       - ./frontend:/app # Same instant-update magic for the frontend
 
