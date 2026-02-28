@@ -12,3 +12,15 @@ services:
       - "5173:5173"
     volumes:
       - ./frontend:/app # Same instant-update magic for the frontend
+
+  db:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: healthtracker
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql

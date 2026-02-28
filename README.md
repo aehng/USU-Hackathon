@@ -76,6 +76,16 @@ Update this once the VM is set up Friday:
 | LLM Tunnel | https://your-cloudflare-tunnel.trycloudflare.com (Noah's Laptop) |
 | SSH | ssh youruser@192.168.x.x |
 
+## 🗄️ Database Schema
+
+The PostgreSQL schema is defined in `db/init.sql` and includes the following tables:
+| Table | Description |
+|---|---|
+| `users` | Stores users (dummy user provided). |
+| `entries` | Stores raw logs, extracted arrays (`symptoms`, `potential_triggers`), and severity. Indexed for fast querying. |
+| `correlations` | Tracks statistical relationships between symptoms and triggers, including correlation scores and sample sizes. |
+| `insights_cache` | Stores pre-computed insights as JSON. Noah writes to this asynchronously after the LLM extracts structured data to prevent locking up the UI. |
+
 ## 🏛️ Architecture
 
 ```text
