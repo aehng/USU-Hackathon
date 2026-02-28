@@ -1,22 +1,10 @@
 import { useState, useEffect } from "react";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import InsightCard from "./components/InsightCard.jsx";
 import PredictionCard from "./components/PredictionCard.jsx";
+import AdviceCard from "./components/AdviceCard.jsx";
 import TriggerSymptomHeatmap from "./components/TriggerSymptomHeatmap.jsx";
+import ActivitySymptomTable from "./components/ActivitySymptomTable.jsx";
 import {
   MOCK_INSIGHTS,
   MOCK_STATS,
@@ -25,14 +13,6 @@ import {
 } from "./mock/dashboardData.js";
 
 const DEMO_USER_ID = "00000000-0000-0000-0000-000000000001";
-
-const CHART_COLORS = [
-  "#0ea5e9", // sky-500
-  "#8b5cf6", // violet-500
-  "#ec4899", // pink-500
-  "#f59e0b", // amber-500
-  "#10b981", // emerald-500
-];
 
 export default function Dashboard() {
   const [insights, setInsights] = useState(null);
@@ -76,10 +56,11 @@ export default function Dashboard() {
     (stats && stats.total_entries != null && stats.total_entries < 5);
   const hasInsights = insights?.insights?.length > 0;
   const hasPrediction = insights?.prediction && !notEnoughData;
+  const hasAdvice = insights?.advice && !notEnoughData;
   const hasSeverityData = stats?.severity_trends?.length > 0;
   const hasTriggerData = stats?.trigger_correlations?.length > 0;
   const hasHeatmapData = stats?.symptom_temporal_heatmap?.length > 0;
-  const hasSymptomData = stats?.symptom_frequency?.length > 0;
+  const hasActivityCorrelationData = stats?.activity_symptom_correlations?.length > 0;
 
   if (loading) {
     return (
@@ -128,6 +109,19 @@ export default function Dashboard() {
               title={insights.prediction.title}
               body={insights.prediction.body}
               riskLevel={insights.prediction.riskLevel}
+            />
+          </section>
+        )}
+
+        {hasAdvice && (
+          <section aria-labelledby="advice-heading">
+            <h2 id="advice-heading" className="mb-3 text-lg font-semibold text-slate-800 dark:text-slate-200">
+              LLM guidance
+            </h2>
+            <AdviceCard
+              title={insights.advice.title}
+              body={insights.advice.body}
+              disclaimer={insights.advice.disclaimer}
             />
           </section>
         )}
@@ -238,44 +232,24 @@ export default function Dashboard() {
             <TriggerSymptomHeatmap data={stats.symptom_temporal_heatmap} />
           </section>
         )}
-        {hasSymptomData && (
+
+        {hasActivityCorrelationData && (
           <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-800">
             <h2 className="mb-3 text-lg font-semibold text-slate-800 dark:text-slate-200">
-              Symptom breakdown
+              Activity ↔ symptom correlation
             </h2>
-            <div className="mx-auto h-64 w-full max-w-xs">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={stats.symptom_frequency}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
-                    paddingAngle={2}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {stats.symptom_frequency.map((_, i) => (
-                      <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: "8px",
-                      border: "1px solid var(--tw-border-color)",
-                    }}
-                    formatter={(value, name) => [value, name]}
-                  />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+            <ActivitySymptomTable data={stats.activity_symptom_correlations} />
           </section>
         )}
 
-        {!hasInsights && !hasPrediction && !hasSeverityData && !hasTriggerData && !hasHeatmapData && !hasSymptomData && !notEnoughData && (
+        {!hasInsights &&
+          !hasPrediction &&
+          !hasAdvice &&
+          !hasSeverityData &&
+          !hasTriggerData &&
+          !hasHeatmapData &&
+          !hasActivityCorrelationData &&
+          !notEnoughData && (
           <p className="text-center text-slate-500 dark:text-slate-400">
             No dashboard data available.
           </p>
