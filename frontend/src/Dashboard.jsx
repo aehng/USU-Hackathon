@@ -21,39 +21,6 @@ export default function Dashboard() {
   const [useMock, setUseMock] = useState(false); // Toggle to false when API is ready
   const [activeTab, setActiveTab] = useState("main"); // 'main' | 'guided' | 'quick'
 
-  const buildBaseCandidates = () => {
-    const candidates = [API_BASE_URL];
-    try {
-      const parsed = new URL(API_BASE_URL);
-      // ⚠️ DO NOT CHANGE PORTS 8001/8002 - Production fallback logic
-      if (parsed.port === "8001") {
-        candidates.push(`${parsed.protocol}//${parsed.hostname}:8002`);
-      }
-    } catch {
-      return candidates;
-    }
-    return [...new Set(candidates)];
-  };
-
-  const fetchJsonWithPortFallback = async (path) => {
-    const bases = buildBaseCandidates();
-    let lastError = null;
-
-    for (const base of bases) {
-      try {
-        const res = await fetch(`${base}${path}`);
-        if (!res.ok) {
-          throw new Error(`Request failed (${res.status})`);
-        }
-        return await res.json();
-      } catch (error) {
-        lastError = error;
-      }
-    }
-
-    throw lastError || new Error("Failed to fetch dashboard data");
-  };
-
   useEffect(() => {
     async function fetchData() {
       setLoading(true);
@@ -65,8 +32,8 @@ export default function Dashboard() {
       } else {
         try {
           const [insightsRes, statsRes] = await Promise.all([
-            fetchJsonWithPortFallback(`/api/insights/${DEMO_USER_ID}`),
-            fetchJsonWithPortFallback(`/api/stats/${DEMO_USER_ID}`),
+            fetch(`${API_BASE_URL}/api/insights/${DEMO_USER_ID}`).then(r => r.json()),
+            fetch(`${API_BASE_URL}/api/stats/${DEMO_USER_ID}`).then(r => r.json()),
           ]);
           setInsights(insightsRes);
           setStats(statsRes);

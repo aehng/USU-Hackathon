@@ -7,22 +7,14 @@ const DEFAULT_API_BASE_URL = 'https://api.flairup.dpdns.org';
 
 function resolveApiBaseUrl() {
   const configuredBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
-  const hasWindow = typeof window !== 'undefined';
-  const hostName = hasWindow ? window.location.hostname : '';
-  const protocol = hasWindow ? window.location.protocol : 'http:';
-  const appRunsOnLocalhost = hostName === 'localhost' || hostName === '127.0.0.1';
-  const configPointsToLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredBaseUrl);
-
-  if (configuredBaseUrl && !(configPointsToLocalhost && !appRunsOnLocalhost)) {
+  
+  // Always use configured URL if set
+  if (configuredBaseUrl) {
     return configuredBaseUrl;
   }
-
-  if (hasWindow && !appRunsOnLocalhost) {
-    // ⚠️ DO NOT CHANGE PORT 8001 - Backend port mapping
-    return `${protocol}//${hostName}:8001`;
-  }
-
-  return configuredBaseUrl || DEFAULT_API_BASE_URL;
+  
+  // Fallback to production default
+  return DEFAULT_API_BASE_URL;
 }
 
 export const API_BASE_URL = resolveApiBaseUrl();
