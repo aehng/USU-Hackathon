@@ -73,24 +73,29 @@ async def generate(request: Request):
     if not transcript:
         raise HTTPException(status_code=400, detail="transcript field is required")
 
-    # System prompt for symptom extraction
+    # System prompt for symptom extraction with explicit JSON formatting
     system_prompt = (
         "You are a medical symptom extraction assistant. Extract health information "
-        "from the user's description. Be precise and conservative - only extract "
-        "information explicitly stated. Return severity as an integer 1-10."
+        "from the user's description. Be conservative - only extract information explicitly stated. "
+        "Return ONLY valid JSON matching this exact format, with no markdown formatting:\n"
+        "{\n"
+        '  "symptoms": ["symptom1", "symptom2"],\n'
+        '  "severity": 5,\n'
+        '  "potential_triggers": ["trigger1"],\n'
+        '  "mood": "optional string or null",\n'
+        '  "body_location": "optional string or null",\n'
+        '  "time_context": "optional string or null",\n'
+        '  "notes": "optional string or null"\n'
+        "}"
     )
     
-    user_content = (
-        f"Extract symptoms, severity, triggers, mood, body location, time context, "
-        f"and any other relevant notes from this description:\n\n{transcript}"
-    )
+    user_content = f"Extract symptoms from this description:\n\n{transcript}"
 
     try:
-        # Use .parse() for strict schema validation
+        # Use regular completion (not .parse()) since Lemonade returns text
         print(f"🔄 Sending request to Lemonade at {LEMONADE_BASE} with model {MODEL}")
-        response = client.beta.chat.completions.parse(
+        response = client.chat.completions.create(
             model=MODEL,
-            response_format=SymptomExtraction,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_content}
@@ -98,10 +103,40 @@ async def generate(request: Request):
             temperature=0.0,
         )
         
-        # .parsed returns the validated Pydantic object
-        parsed_obj = response.choices[0].message.parsed
-        print(f"✅ Successfully extracted symptoms: {parsed_obj.symptoms}")
-        return json.loads(parsed_obj.model_dump_json())
+        # Extract the text response
+        llm_text = response.choices[0].message.content.strip()
+        print(f"📥 LLM response: {llm_text[:200]}...")
+        
+        # Try to parse JSON from the response
+        # Remove markdown code blocks if present
+        if llm_text.startswith("```"):
+            # Extract JSON from markdown code block
+            lines = llm_text.split("\n")
+            json_lines = []
+            in_code_block = False
+            for line in lines:
+                if line.startswith("```"):
+                    in_code_block = not in_code_block
+                elif in_code_block:
+                    json_lines.append(line)
+            llm_text = "\n".join(json_lines).strip()
+        
+        # Parse the JSON
+        try:
+            parsed_data = json.loads(llm_text)
+        except json.JSONDecodeError:
+            # If still failing, try to extract JSON from anywhere in the text
+            import re
+            json_match = re.search(r'\{[^{}]*"symptoms"[^{}]*\}', llm_text, re.DOTALL)
+            if json_match:
+                parsed_data = json.loads(json_match.group())
+            else:
+                raise ValueError(f"Could not parse JSON from LLM response: {llm_text[:200]}")
+        
+        # Validate against Pydantic model
+        validated = SymptomExtraction(**parsed_data)
+        print(f"✅ Successfully extracted symptoms: {validated.symptoms}")
+        return validated.model_dump()
 
     except Exception as exc:
         print(f"❌ LLM extraction error: {type(exc).__name__}: {str(exc)}")
