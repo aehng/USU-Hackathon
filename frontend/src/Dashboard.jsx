@@ -84,9 +84,9 @@ export default function Dashboard() {
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-2xl border border-orange-200 bg-white shadow-md">
               <img
-                src="/flairup-logo.png"
+                src="/Screenshot 2026-02-28 011120.png"
                 alt="FlairUp logo"
-                className="h-9 w-auto object-contain"
+                className="h-9 w-9 object-contain"
               />
             </div>
             <div>
