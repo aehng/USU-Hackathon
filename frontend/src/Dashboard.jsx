@@ -2,11 +2,11 @@ import { useState, useEffect } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import InsightCard from "./components/InsightCard.jsx";
 import PredictionCard from "./components/PredictionCard.jsx";
-import { API_BASE_URL, DEMO_USER_ID } from "./api/client.js";
 import AdviceCard from "./components/AdviceCard.jsx";
 import TriggerSymptomHeatmap from "./components/TriggerSymptomHeatmap.jsx";
 import ActivitySymptomTable from "./components/ActivitySymptomTable.jsx";
 import VoiceRecorder from "./components/VoiceRecorder.jsx";
+import { API_BASE_URL, DEMO_USER_ID } from "./api/client.js";
 import {
   MOCK_INSIGHTS,
   MOCK_STATS,
