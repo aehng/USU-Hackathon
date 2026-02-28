@@ -12,8 +12,8 @@ The log screen is the first thing a user sees and the feature that makes this ap
 ---
 
 ## Phase 1 — Setup (Fri 5:00–6:00pm)
-- [ ] Create the GitHub repo and add Noah, Clayton, and Max as collaborators
-- [ ] Push the initial folder structure so everyone can clone
+- [X] Create the GitHub repo and add Noah, Clayton, and Max as collaborators
+- [X] Push the initial folder structure so everyone can clone
 - [ ] Confirm everyone has cloned the repo and can SSH into the VM
 - [ ] Update the VM IP in README.md once it's known
 - [ ] Spin up Docker Compose on the VM and confirm all three services start
