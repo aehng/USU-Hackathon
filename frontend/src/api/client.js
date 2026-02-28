@@ -2,7 +2,27 @@
 // NOTE: Ask Eli before changing DEMO_USER_ID or API_BASE_URL (README keeper rule)
 
 const DEFAULT_API_BASE_URL = 'https://api.flairup.dpdns.org';
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || DEFAULT_API_BASE_URL;
+
+function resolveApiBaseUrl() {
+  const configuredBaseUrl = (import.meta.env.VITE_API_BASE_URL || '').trim();
+  const hasWindow = typeof window !== 'undefined';
+  const hostName = hasWindow ? window.location.hostname : '';
+  const protocol = hasWindow ? window.location.protocol : 'http:';
+  const appRunsOnLocalhost = hostName === 'localhost' || hostName === '127.0.0.1';
+  const configPointsToLocalhost = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(configuredBaseUrl);
+
+  if (configuredBaseUrl && !(configPointsToLocalhost && !appRunsOnLocalhost)) {
+    return configuredBaseUrl;
+  }
+
+  if (hasWindow && !appRunsOnLocalhost) {
+    return `${protocol}//${hostName}:8001`;
+  }
+
+  return configuredBaseUrl || DEFAULT_API_BASE_URL;
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 export const DEMO_USER_ID = '00000000-0000-0000-0000-000000000001';
 
 async function fetchJson(url, options = {}) {

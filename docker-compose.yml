@@ -5,6 +5,7 @@ services:
       - "8001:8000"
     environment:
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/healthtracker
+      - LEMONADE_BASE_URL=https://llm.flairup.dpdns.org/v1
     volumes:
       - ./backend:/app # This maps your VM folder to the container so code updates instantly when you save
 
