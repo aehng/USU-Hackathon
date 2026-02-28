@@ -79,27 +79,29 @@ def normalize_user_id(user_id: str | None) -> str:
 
 def call_llm_chat(messages: List[Dict], temperature: float = 0.7):
     """Call LLM with chat messages for conversational guided log."""
-    from openai import OpenAI
+    # ⚠️ DO NOT CHANGE THIS URL UNDER ANY CIRCUMSTANCE - Production LLM endpoint
+    llm_base = os.getenv("LLM_SERVER_URL", "https://llm.flairup.dpdns.org").rstrip('/')
+    chat_endpoint = f"{llm_base}/chat"
     
-    # ⚠️ DO NOT CHANGE THIS URL UNDER ANY CIRCUMSTANCE - Lemonade LLM endpoint
-    lemonade_base = os.getenv("LEMONADE_BASE_URL", "http://localhost:8080/v1")
-    model = os.getenv("LLM_MODEL", "Qwen3-1.7B-Hybrid")
-    
-    client = OpenAI(
-        api_key="not-needed",
-        base_url=lemonade_base.rstrip("/")
-    )
+    logger.info("Calling LLM chat endpoint: %s", chat_endpoint)
     
     try:
-        response = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=temperature
+        resp = requests.post(
+            chat_endpoint,
+            json={"messages": messages, "temperature": temperature},
+            timeout=60
         )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        logger.error(f"LLM chat error: {e}")
-        raise HTTPException(status_code=502, detail=f"LLM chat failed: {str(e)}")
+        resp.raise_for_status()
+        data = resp.json()
+        return data["response"]
+    except requests.RequestException as exc:
+        logger.error("LLM chat request failed: %s", exc)
+        if 'resp' in locals():
+            logger.error("LLM response: %s - %s", resp.status_code, resp.text)
+        raise HTTPException(status_code=502, detail=f"LLM chat service unavailable: {str(exc)}")
+    except (ValueError, KeyError) as e:
+        logger.error("LLM chat returned invalid format: %s", e)
+        raise HTTPException(status_code=502, detail="LLM chat returned invalid format.")
 
 
 def save_entry_to_db(user_id: str, transcript: str, llm_data: dict):

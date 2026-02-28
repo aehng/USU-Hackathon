@@ -212,6 +212,58 @@ async def generate(request: Request):
         )
 
 
+@app.post("/chat")
+async def chat(request: Request):
+    """Conversational chat endpoint for guided logging.
+    
+    Expected input JSON:
+      {
+        "messages": [
+          {"role": "system", "content": "..."},
+          {"role": "user", "content": "..."},
+          {"role": "assistant", "content": "..."}
+        ],
+        "temperature": 0.7
+      }
+    
+    Returns: { "response": "assistant's reply" }
+    """
+    try:
+        payload = await request.json()
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid json body")
+    
+    messages = payload.get("messages", [])
+    temperature = payload.get("temperature", 0.7)
+    
+    if not messages:
+        raise HTTPException(status_code=400, detail="messages field is required")
+    
+    try:
+        print(f"🔄 Sending chat request to Lemonade at {LEMONADE_BASE} with model {MODEL}")
+        print(f"📝 Message count: {len(messages)}")
+        
+        response = client.chat.completions.create(
+            model=MODEL,
+            messages=messages,
+            temperature=temperature
+        )
+        
+        assistant_response = response.choices[0].message.content.strip()
+        print(f"✅ Chat response: {assistant_response[:100]}...")
+        
+        return {"response": assistant_response}
+        
+    except Exception as exc:
+        print(f"❌ Chat error: {type(exc).__name__}: {str(exc)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=502,
+            detail=f"Chat failed: {str(exc)}"
+        )
+
+
 if __name__ == "__main__":
     # Default adapter port is 8000 on the laptop
     port = int(os.getenv("ADAPTER_PORT", "8000"))
