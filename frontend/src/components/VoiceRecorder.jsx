@@ -146,7 +146,6 @@ function VoiceRecorder({ mode, onLogSaved }) {
           ...response.llm_response
         });
         triggerRefresh(); // This handles context/history
-        if (onLogSaved) onLogSaved(); // <-- ADD THIS to refresh the dashboard charts
       } else {
         // Guided mode
         console.log('🎯 Starting guided log...');
@@ -171,7 +170,6 @@ function VoiceRecorder({ mode, onLogSaved }) {
             });
           }
           triggerRefresh();
-          if (onLogSaved) onLogSaved(); // <-- ADD THIS to refresh the dashboard charts
         } else {
           // More questions needed
           setGuidedState(response);
@@ -221,7 +219,6 @@ if (response.is_complete) {
   setGuidedState(null);
   setAnswers([]);
   triggerRefresh();
-  if (onLogSaved) onLogSaved();
 } else {
         // More questions - update state
         setGuidedState(response);
@@ -242,6 +239,8 @@ if (response.is_complete) {
     setError(null);
     setGuidedState(null);
     setAnswers([]);
+    // Refresh dashboard data AFTER user dismisses success screen
+    if (onLogSaved) onLogSaved();
   };
 
   const switchInputMethod = (method) => {
