@@ -76,6 +76,15 @@ Update this once the VM is set up Friday:
 | LLM Tunnel | https://your-cloudflare-tunnel.trycloudflare.com (Noah's Laptop) |
 | SSH | ssh ubuntu@192.168.1.9 |
 
+### 🔌 Port Allocations
+To avoid Docker collisions, the team is strictly using the following ports on the VM:
+| Port | Service | Owner | Description |
+|---|---|---|---|
+| `3000` | Frontend | Eli/Max | React Vite Development Server |
+| `5432` | Database | Clayton | PostgreSQL Connection |
+| `8000` | Tunnel | Noah | Reserved for Cloudflare LLM Tunnel |
+| `8080` | Backend API | Noah/Clayton | FastAPI Web Server |
+
 ## 🗄️ Database Schema
 
 The PostgreSQL schema is defined in `db/init.sql` and includes the following tables:
