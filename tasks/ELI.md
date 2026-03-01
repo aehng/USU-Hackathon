@@ -10,12 +10,22 @@ Eli owned the voice logging screen — the hero feature of the whole app — and
 
 The log screen is the first thing a user sees and the feature that makes this app unique. Recording, transcription, and submission all happen seamlessly — the user presses a button, speaks naturally, and the app takes care of the rest.
 
+### Whisper Transcription Integration
+- Integrated the **Faster-Whisper** transcription pipeline into the frontend: the `VoiceRecorder` component captures audio with the **MediaRecorder API** and sends it to the backend's `/api/transcribe` endpoint, which forwards it to the Lemonade adapter for speech-to-text
+- This replaced the Web Speech API approach and gave reliable cross-browser transcription (Chrome, Edge, and Firefox all work)
+
+### Guided 3-Step Log
+- Built most of the **Guided Log** flow — the conversational multi-turn experience where the user:
+  1. Records an initial description
+  2. Answers follow-up questions from the LLM (one at a time)
+  3. Reviews extracted data and confirms
+- Wired up `POST /api/guided-log/start`, `POST /api/guided-log/respond`, and `POST /api/guided-log/finalize` in the `VoiceRecorder` component
+- Handles edge cases: broken LLM responses, early completion attempts, typed-answer fallback
+
 ### Voice Recorder
 - Built the `VoiceRecorder` component supporting both **Quick Log** and **Guided Log** modes
-- Uses the **MediaRecorder API** to capture raw audio in-browser, then sends it to the backend's `/api/transcribe` endpoint (Faster-Whisper) for reliable cross-browser transcription
 - Shows a live recording timer and stops on user demand — no auto-submit
 - Handles errors gracefully: shows "Try Again" and "Type Instead" fallback options
-- Guides users through conversational follow-up questions in Guided mode
 
 ### App Structure
 - Built the full single-page app with tab navigation: **Main**, **Guided log**, **Quick log**, **History**
@@ -31,7 +41,7 @@ The log screen is the first thing a user sees and the feature that makes this ap
 ---
 
 ## Key Files
-- `frontend/src/components/VoiceRecorder.jsx` — core voice/text logging component
+- `frontend/src/components/VoiceRecorder.jsx` — core voice/text logging component (Quick Log + Guided Log + Whisper integration)
 - `frontend/src/context/RefreshContext.jsx` — global dashboard refresh signal
 - `frontend/src/api/client.js` — shared API client (all backend calls)
 - `frontend/src/App.jsx` — app root with `RefreshProvider`

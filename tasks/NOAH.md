@@ -1,6 +1,6 @@
-# 🤖 Noah — LLM Integration + API Routes + Audio Transcription
+# 🤖 Noah — LLM Integration + API Routes + History/Edit Tab + Cloudflare
 
-Noah owned the entire backend, the LLM integration, and the Cloudflare infrastructure. This was the critical path — every other feature depended on the extraction endpoint working correctly.
+Noah owned the entire backend, the LLM integration, the History/Edit frontend tab, and the Cloudflare infrastructure that made the app publicly accessible during the hackathon.
 
 **Branch:** `noah/llm-backend`
 
@@ -15,8 +15,6 @@ A custom FastAPI server running on Noah's laptop that bridges the main backend t
 - `POST /v1/chat/completions` — conversational guided log with multi-turn dialogue
 - `POST /chat` — simplified chat endpoint
 
-The adapter is exposed publicly via **Cloudflare Tunnels** at `https://llm.flairup.dpdns.org`.
-
 ### FastAPI Backend (`backend/app/main.py`)
 All HTTP routes:
 - `GET /health` — health check
@@ -30,6 +28,13 @@ All HTTP routes:
 - `GET /api/history/{user_id}` — returns all log entries for the history page
 - `PUT /api/entries/{entry_id}` — edits an existing log entry
 
+### History / Database Display & Edit Tab (`frontend/src/components/LogHistory.jsx`)
+Built the **History tab** — the frontend view that lets users browse and edit their past log entries:
+- Scrollable list of all past entries, most recent first
+- Each row shows date/time, symptom tags (colored by severity), severity badge, triggers, and notes
+- Inline editing: users can update symptoms, triggers, notes, and severity directly in the UI
+- Calls `GET /api/history/{user_id}` and `PUT /api/entries/{entry_id}` to fetch and persist changes
+
 ### Key Backend Features
 - **CORS** configured to allow all origins (suitable for hackathon deployment)
 - **Canonical trigger list** and alias map for normalizing LLM trigger output
@@ -38,15 +43,20 @@ All HTTP routes:
 - **`normalize_user_id()`** — falls back to the demo UUID for invalid user IDs
 - **In-memory guided session storage** (`guided_sessions` dict) holds multi-turn conversations
 
-### Deployment
-- Backend served at `https://api.flairup.dpdns.org` via Cloudflare Tunnels
-- LLM adapter served at `https://llm.flairup.dpdns.org` from Noah's laptop
+### Cloudflare Tunnel Management
+Set up and managed all **Cloudflare Tunnels** that exposed the hackathon VM to the public internet:
+- `https://flairup.dpdns.org` — React frontend
+- `https://api.flairup.dpdns.org` — FastAPI backend
+- `https://llm.flairup.dpdns.org` — Lemonade LLM adapter (running on Noah's laptop)
+
+> ⚠️ All three domains are now offline — they were served from a hackathon VM and laptop that are no longer running. To run the app locally, use Docker Compose (see README).
 
 ---
 
 ## Key Files
 - `backend/app/main.py` — all FastAPI routes and helper functions
 - `backend/lemonade_adapter.py` — LLM adapter (Qwen3 + Faster-Whisper)
+- `frontend/src/components/LogHistory.jsx` — History/edit tab component
 - `backend/requirements.txt` — Python dependencies
 - `backend/Dockerfile` — containerized backend
 

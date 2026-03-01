@@ -1,13 +1,13 @@
 # 🩺 FlairUp — VoiceHealth Tracker
 Voice-activated health logging with automatic trigger detection and flare-up prediction. Speak your symptoms, skip the forms. The app finds patterns you'd never notice yourself.
 
-**Live at:** https://flairup.dpdns.org
+**Previously hosted at:** https://flairup.dpdns.org *(offline — was served from a hackathon VM that is no longer running)*
 
 ## 👥 Team
 | Person | Role |
 |---|---|
-| Eli | Frontend — Voice UI (MediaRecorder + Faster-Whisper) + Log Screen + Project Coordination |
-| Noah | Backend — Lemonade LLM Adapter + Cloudflare Tunnels + API Routes + Audio Transcription |
+| Eli | Frontend — Voice UI + Whisper Transcription Integration + Guided 3-Step Log + Log Screen + Project Coordination |
+| Noah | Backend — Lemonade LLM Adapter + History/Edit Tab + Cloudflare Tunnel Management + API Routes |
 | Clayton | Backend — Database Schema + Analysis Engine + Trigger Taxonomy Pipeline |
 | Max | Frontend & Validation — Dashboard + Charts + JSON Validator (C + Python) |
 
@@ -33,9 +33,9 @@ This app uses a single shared demo user (`00000000-0000-0000-0000-000000000001`)
 
 | Service | Address |
 |---|---|
-| Frontend (prod) | https://flairup.dpdns.org |
-| Backend API (prod) | https://api.flairup.dpdns.org |
-| LLM Adapter (Noah's laptop) | https://llm.flairup.dpdns.org |
+| Frontend (prod) | https://flairup.dpdns.org *(offline — VM no longer running)* |
+| Backend API (prod) | https://api.flairup.dpdns.org *(offline — VM no longer running)* |
+| LLM Adapter (Noah's laptop) | https://llm.flairup.dpdns.org *(offline)* |
 | Frontend (local Docker) | http://localhost:5173 |
 | Backend API (local Docker) | http://localhost:8001 |
 | API Docs (local) | http://localhost:8001/docs |
@@ -146,8 +146,8 @@ Merge to `main` when something works end-to-end. VM pulls from `main`.
 | POST | `/api/guided-log/finalize` | Noah | Finalize guided session: extract JSON from conversation, write to DB |
 | GET | `/api/insights/{user_id}` | Noah | Return AI-generated insight cards, prediction, and advice |
 | GET | `/api/stats/{user_id}` | Clayton | Return stats for charts (severity trends, trigger counts) |
-| GET | `/api/history/{user_id}` | Clayton | Return all log entries for the history page |
-| PUT | `/api/entries/{entry_id}` | Clayton | Edit an existing log entry (symptoms, triggers, notes, severity) |
+| GET | `/api/history/{user_id}` | Noah | Return all log entries for the history page |
+| PUT | `/api/entries/{entry_id}` | Noah | Edit an existing log entry (symptoms, triggers, notes, severity) |
 
 > The legacy `/api/log/guided/start` and `/api/log/guided/finalize` endpoints are still present for compatibility but deprecated. Use `/api/guided-log/*` instead.
 
