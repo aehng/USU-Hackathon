@@ -1,18 +1,13 @@
 from fastapi import FastAPI, Request, HTTPException, UploadFile, File
-from fastapi.responses import StreamingResponse
 import uvicorn
 import os
 import json
-import logging
 import tempfile
 import shutil
-import requests as http_requests
 from openai import OpenAI
 from pydantic import BaseModel
 from typing import List, Optional
 from faster_whisper import WhisperModel
-
-logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Lemonade Symptom Extraction Adapter")
 
@@ -62,10 +57,6 @@ class SymptomExtraction(BaseModel):
 # ============================================================================
 
 LEMONADE_BASE = os.getenv("LEMONADE_BASE_URL", "http://localhost:8080/v1")
-# Derive the Lemonade server root (strip /v1 suffix if present)
-LEMONADE_ROOT = LEMONADE_BASE.rstrip("/")
-if LEMONADE_ROOT.endswith("/v1"):
-    LEMONADE_ROOT = LEMONADE_ROOT[:-3]
 # Use a model that exists in Lemonade. Common options:
 # - Qwen3-1.7B-Hybrid (very fast, decent quality - RECOMMENDED FOR DEMOS)
 # - Qwen3-4B-Hybrid (medium speed, good quality)
@@ -376,56 +367,6 @@ async def openai_chat_completions(request: Request):
             status_code=502,
             detail=f"Chat completions failed: {str(exc)}"
         )
-
-
-
-
-# ============================================================================
-# LEMONADE MONITORING ENDPOINTS (proxy to real Lemonade server)
-# The Lemonade desktop app polls these endpoints for health/stats/logs.
-# We proxy them so requests that land on the adapter port work correctly.
-# ============================================================================
-
-@app.get("/api/v1/health")
-async def proxy_health():
-    """Proxy Lemonade health check to the real Lemonade server."""
-    target = f"{LEMONADE_ROOT}/api/v1/health"
-    try:
-        resp = http_requests.get(target, timeout=5)
-        return resp.json()
-    except http_requests.RequestException as exc:
-        logger.warning("Lemonade health proxy failed: %s", exc)
-        return {"status": "unavailable", "message": "Lemonade server not reachable"}
-
-
-@app.get("/api/v1/stats")
-async def proxy_stats():
-    """Proxy Lemonade performance stats to the real Lemonade server."""
-    target = f"{LEMONADE_ROOT}/api/v1/stats"
-    try:
-        resp = http_requests.get(target, timeout=5)
-        return resp.json()
-    except http_requests.RequestException as exc:
-        logger.warning("Lemonade stats proxy failed: %s", exc)
-        return {"stats": {}, "message": "Lemonade server not reachable"}
-
-
-@app.get("/api/v1/logs/stream")
-async def proxy_logs_stream():
-    """Proxy Lemonade SSE log stream from the real Lemonade server."""
-    target = f"{LEMONADE_ROOT}/api/v1/logs/stream"
-
-    def event_stream():
-        try:
-            with http_requests.get(target, stream=True, timeout=60) as resp:
-                for chunk in resp.iter_content(chunk_size=8192):
-                    if chunk:
-                        yield chunk
-        except http_requests.RequestException as exc:
-            logger.warning("Lemonade log stream proxy failed: %s", exc)
-            yield b"data: {\"message\": \"Lemonade server not reachable\"}\n\n"
-
-    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 if __name__ == "__main__":
