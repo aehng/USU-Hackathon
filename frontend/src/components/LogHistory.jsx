@@ -1,23 +1,28 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { getHistory, updateEntry } from "../api/client.js";
+import { RefreshContext } from "../context/RefreshContext";
 
 export default function LogHistory() {
   const [entries, setEntries] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
+  const { refreshKey } = useContext(RefreshContext);
 
   useEffect(() => {
     fetchLogs();
-  }, []);
+  }, [refreshKey]);
 
   const fetchLogs = async () => {
     try {
       setLoading(true);
+      setError(null);
       const data = await getHistory();
       if (data.entries) setEntries(data.entries);
-    } catch (error) {
-      console.error("Failed to fetch history:", error);
+    } catch (err) {
+      console.error("Failed to fetch history:", err);
+      setError(err.message || "Failed to load history.");
     } finally {
       setLoading(false);
     }
@@ -53,6 +58,14 @@ export default function LogHistory() {
   };
 
   if (loading) return <p className="text-sm text-slate-500">Loading history...</p>;
+  if (error) return (
+    <div className="rounded-lg border border-red-200 bg-red-50 p-3">
+      <p className="text-sm font-medium text-red-700">{error}</p>
+      <button onClick={fetchLogs} className="mt-2 text-xs font-medium text-red-600 hover:text-red-800 underline">
+        Retry
+      </button>
+    </div>
+  );
   if (entries.length === 0) return <p className="text-sm text-slate-500">No logs found.</p>;
 
   return (

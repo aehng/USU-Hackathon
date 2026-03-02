@@ -171,47 +171,30 @@ def normalize_user_id(user_id: str | None) -> str:
 
 
 def call_llm_chat(messages: List[Dict], temperature: float = 0.7):
-    """Call LLM with chat messages for conversational guided log using OpenAI client."""
-    from openai import OpenAI
-    
+    """Call LLM with chat messages for conversational guided log via the /chat endpoint."""
     # ⚠️ DO NOT CHANGE THIS URL UNDER ANY CIRCUMSTANCE - Production LLM endpoint
     llm_base = os.getenv("LLM_SERVER_URL", "https://llm.flairup.dpdns.org").rstrip('/')
-    model = os.getenv("LLM_MODEL", "Qwen3-1.7B-Hybrid")
-    default_model = "Qwen3-1.7B-Hybrid"
-    
-    # For OpenAI-compatible API, append /v1 to base URL
-    openai_base_url = f"{llm_base}/v1"
-    
-    logger.info("Calling LLM chat with OpenAI client at: %s with model: %s", openai_base_url, model)
-    
+    llm_endpoint = f"{llm_base}/chat"
+
+    logger.info("Calling LLM chat endpoint: %s", llm_endpoint)
     try:
-        client = OpenAI(
-            api_key="not-needed",
-            base_url=openai_base_url
+        resp = requests.post(
+            llm_endpoint,
+            json={"messages": messages, "temperature": temperature},
+            timeout=60,
         )
-        
-        response = client.chat.completions.create(
-            model=model,
-            messages=messages,
-            temperature=temperature
-        )
-        return response.choices[0].message.content.strip()
-    except Exception as e:
-        # If model not found, retry with default model
-        if "model_not_found" in str(e).lower() and model != default_model:
-            logger.warning(f"Model '{model}' not found on Lemonade server, retrying with '{default_model}'")
-            try:
-                response = client.chat.completions.create(
-                    model=default_model,
-                    messages=messages,
-                    temperature=temperature
-                )
-                return response.choices[0].message.content.strip()
-            except Exception as retry_e:
-                logger.error("Retry with default model failed: %s", retry_e)
-                raise HTTPException(status_code=502, detail=f"LLM chat service unavailable: {str(retry_e)}")
-        logger.error("LLM chat request failed: %s", e)
-        raise HTTPException(status_code=502, detail=f"LLM chat service unavailable: {str(e)}")
+        resp.raise_for_status()
+        result = resp.json()
+        if "response" not in result:
+            logger.error("LLM chat returned unexpected format: %s", result)
+            raise HTTPException(status_code=502, detail="LLM chat returned unexpected response format.")
+        return result["response"]
+    except requests.RequestException as exc:
+        logger.error("LLM chat request failed: %s", exc)
+        raise HTTPException(status_code=502, detail="LLM chat service unavailable or failed.")
+    except ValueError:
+        logger.error("LLM chat returned non-JSON")
+        raise HTTPException(status_code=502, detail="LLM chat returned invalid format.")
 
 
 def sanitize_llm_data(llm_data: dict) -> dict:
@@ -249,7 +232,7 @@ def save_entry_to_db(user_id: str, transcript: str, llm_data: dict):
     try:
         if user_id:
             # ensure user exists
-            existing = db.query(User).get(user_id)
+            existing = db.get(User, user_id)
             if not existing:
                 new_user = User(id=user_id)
                 db.add(new_user)
